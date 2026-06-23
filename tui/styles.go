@@ -29,26 +29,32 @@ type styles struct {
 	titleBar     lipgloss.Style
 }
 
+// adaptive pairs a light-background color with a dark-background one; lipgloss
+// resolves the right one from the renderer's detected/forced background.
+func adaptive(light, dark string) lipgloss.AdaptiveColor {
+	return lipgloss.AdaptiveColor{Light: light, Dark: dark}
+}
+
 func newStyles() styles {
 	return styles{
-		busy:     lipgloss.NewStyle().Foreground(lipgloss.Color("46")).Bold(true), // bright green
-		waiting:  lipgloss.NewStyle().Foreground(lipgloss.Color("220")),           // yellow
-		inactive: lipgloss.NewStyle().Foreground(lipgloss.Color("240")),           // dim gray
+		busy:     lipgloss.NewStyle().Foreground(adaptive("28", "46")).Bold(true), // green
+		waiting:  lipgloss.NewStyle().Foreground(adaptive("130", "220")),          // amber
+		inactive: lipgloss.NewStyle().Foreground(adaptive("247", "240")),          // dim
 
-		cursorRow:    lipgloss.NewStyle().Background(lipgloss.Color("236")).Bold(true),
-		selectMark:   lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Bold(true), // blue check
-		header:       lipgloss.NewStyle().Foreground(lipgloss.Color("213")).Bold(true).Underline(true),
-		title:        lipgloss.NewStyle().Foreground(lipgloss.Color("252")),
-		project:      lipgloss.NewStyle().Foreground(lipgloss.Color("75")),
-		meta:         lipgloss.NewStyle().Foreground(lipgloss.Color("244")),
-		tag:          lipgloss.NewStyle().Foreground(lipgloss.Color("141")),
-		archivedRow:  lipgloss.NewStyle().Foreground(lipgloss.Color("240")).Italic(true),
-		statusMsg:    lipgloss.NewStyle().Foreground(lipgloss.Color("48")).Bold(true),
-		keyHint:      lipgloss.NewStyle().Foreground(lipgloss.Color("244")),
-		helpKey:      lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Bold(true),
-		helpDesc:     lipgloss.NewStyle().Foreground(lipgloss.Color("250")),
-		filterPrompt: lipgloss.NewStyle().Foreground(lipgloss.Color("220")).Bold(true),
-		titleBar:     lipgloss.NewStyle().Foreground(lipgloss.Color("231")).Bold(true),
+		cursorRow:    lipgloss.NewStyle().Background(adaptive("254", "236")).Bold(true),
+		selectMark:   lipgloss.NewStyle().Foreground(adaptive("27", "39")).Bold(true), // blue check
+		header:       lipgloss.NewStyle().Foreground(adaptive("127", "213")).Bold(true).Underline(true),
+		title:        lipgloss.NewStyle().Foreground(adaptive("236", "252")),
+		project:      lipgloss.NewStyle().Foreground(adaptive("26", "75")),
+		meta:         lipgloss.NewStyle().Foreground(adaptive("245", "244")),
+		tag:          lipgloss.NewStyle().Foreground(adaptive("97", "141")),
+		archivedRow:  lipgloss.NewStyle().Foreground(adaptive("248", "240")).Italic(true),
+		statusMsg:    lipgloss.NewStyle().Foreground(adaptive("29", "48")).Bold(true),
+		keyHint:      lipgloss.NewStyle().Foreground(adaptive("245", "244")),
+		helpKey:      lipgloss.NewStyle().Foreground(adaptive("27", "39")).Bold(true),
+		helpDesc:     lipgloss.NewStyle().Foreground(adaptive("238", "250")),
+		filterPrompt: lipgloss.NewStyle().Foreground(adaptive("130", "220")).Bold(true),
+		titleBar:     lipgloss.NewStyle().Foreground(lipgloss.Color("231")).Background(adaptive("62", "57")).Bold(true),
 	}
 }
 

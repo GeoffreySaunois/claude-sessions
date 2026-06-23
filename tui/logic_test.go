@@ -141,7 +141,7 @@ func TestCursorSkipsHeaders(t *testing.T) {
 		{ID: "1", Cwd: "/x/beta"},
 		{ID: "2", Cwd: "/x/alpha"},
 	}
-	m := NewModel(store, sessions)
+	m := NewModel(store, sessions, ThemeSystem, true)
 	m.cycleSort() // -> project, which inserts headers at index 0
 	if _, ok := m.cursorSession(); !ok {
 		t.Fatal("cursor must rest on a session, not a header, after grouping")
@@ -152,11 +152,11 @@ func TestCursorSkipsHeaders(t *testing.T) {
 // across construction and rendering.
 func TestEmptyModelDoesNotPanic(t *testing.T) {
 	store, _ := core.LoadMetaStore()
-	m := NewModel(store, nil)
+	m := NewModel(store, nil, ThemeSystem, true)
 	_ = m.View() // must not panic on an empty list
 
 	// A session with empty Cwd/Title/branch must also render cleanly.
-	m2 := NewModel(store, []core.Session{{ID: "x"}})
+	m2 := NewModel(store, []core.Session{{ID: "x"}}, ThemeSystem, true)
 	_ = m2.View()
 	if s, ok := m2.cursorSession(); !ok || s.ID != "x" {
 		t.Fatal("single empty-field session should be selectable")

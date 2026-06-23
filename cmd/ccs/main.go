@@ -4,6 +4,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
@@ -11,6 +12,7 @@ import (
 	"claude-sessions/tui"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 func main() {
@@ -22,6 +24,9 @@ func main() {
 
 // run loads the session data and drives the Bubbletea program.
 func run() error {
+	themeFlag := flag.String("theme", "system", "color theme: system, light, or dark")
+	flag.Parse()
+
 	store, err := core.LoadMetaStore()
 	if err != nil {
 		return err
@@ -30,7 +35,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	model := tui.NewModel(store, sessions)
+	model := tui.NewModel(store, sessions, tui.ParseTheme(*themeFlag), lipgloss.HasDarkBackground())
 	_, err = tea.NewProgram(model, tea.WithAltScreen()).Run()
 	return err
 }

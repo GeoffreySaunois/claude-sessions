@@ -19,6 +19,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+		m.scrollToCursor()
 		return m, nil
 	case sessionsLoadedMsg:
 		return m.applyRefresh(msg), nil
@@ -84,8 +85,11 @@ func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cycleSort()
 	case "H":
 		m.toggleArchivedVisibility()
+	case "T":
+		m.cycleTheme()
 	case "h", "?":
 		m.help = !m.help
+		m.scrollToCursor()
 	case "r":
 		return m, m.refresh()
 	}
@@ -107,6 +111,7 @@ func (m *Model) moveCursor(delta int) {
 		i = m.skipHeaders(i, step)
 	}
 	m.cursor = i
+	m.scrollToCursor()
 }
 
 // skipHeaders moves one logical step from i in the given direction, advancing
