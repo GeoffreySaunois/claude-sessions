@@ -30,6 +30,163 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, sessions)
 }
 
+// optionsResponse is the body of GET /api/options: the universe of category
+// and tag options the user has created or used.
+type optionsResponse struct {
+	Categories []string `json:"categories"`
+	Tags       []string `json:"tags"`
+}
+
+func (s *Server) handleGetOptions(w http.ResponseWriter, r *http.Request) {
+	store, err := core.LoadMetaStore()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	categories, tags := store.Options()
+	writeJSON(w, optionsResponse{Categories: categories, Tags: tags})
+}
+
+// addOptionRequest is the body of POST /api/options: register an unassigned
+// category or tag into the option universe.
+type addOptionRequest struct {
+	Kind string `json:"kind"` // "category" | "tag"
+	Name string `json:"name"`
+}
+
+func (s *Server) handleAddOption(w http.ResponseWriter, r *http.Request) {
+	var req addOptionRequest
+	if err := decodeJSON(r, &req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.Name == "" {
+		http.Error(w, "missing name", http.StatusBadRequest)
+		return
+	}
+	store, err := core.LoadMetaStore()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := addOption(store, req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+func addOption(store *core.MetaStore, req addOptionRequest) error {
+	switch req.Kind {
+	case "category":
+		return store.AddCategory(req.Name)
+	case "tag":
+		return store.AddTag(req.Name)
+	default:
+		return errBadKind
+	}
+}
+
+var errBadKind = &apiError{"kind must be category or tag"}
+
+type apiError struct{ msg string }
+
+func (e *apiError) Error() string { return e.msg }
+
+// metaRequest is the body of POST /api/meta. Each field is a pointer so the
+// handler can tell "absent" from "set to zero value" and only apply the fields
+// the client actually sent — an archive toggle must not wipe tags.
+type metaRequest struct {
+	ID       string    `json:"id"`
+	Category *string   `json:"category"`
+	Tags     *[]string `json:"tags"`
+	Archived *bool     `json:"archived"`
+}
+
+func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request) {
+	var req metaRequest
+	if err := decodeJSON(r, &req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if req.ID == "" {
+		http.Error(w, "missing id", http.StatusBadRequest)
+		return
+	}
+	store, err := core.LoadMetaStore()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := store.Update(req.ID, applyMetaPatch(req)); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]bool{"ok": true})
+}
+
+// applyMetaPatch returns a mutator that sets only the fields present in req,
+// leaving every absent field untouched.
+func applyMetaPatch(req metaRequest) func(*core.SessionMeta) {
+	return func(m *core.SessionMeta) {
+		if req.Category != nil {
+			m.Category = *req.Category
+		}
+		if req.Tags != nil {
+			m.Tags = *req.Tags
+		}
+		if req.Archived != nil {
+			m.Archived = *req.Archived
+		}
+	}
+}
+
+// bulkRequest is the body of POST /api/bulk: one action applied to many ids.
+type bulkRequest struct {
+	IDs    []string `json:"ids"`
+	Action string   `json:"action"` // "archive" | "unarchive" | "category"
+	Value  string   `json:"value"`  // category name when action == "category"
+}
+
+func (s *Server) handleBulk(w http.ResponseWriter, r *http.Request) {
+	var req bulkRequest
+	if err := decodeJSON(r, &req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	mutate, err := bulkMutator(req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	store, err := core.LoadMetaStore()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := store.UpdateMany(req.IDs, mutate); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]int{"updated": len(req.IDs)})
+}
+
+// bulkMutator dispatches a bulk action to the SessionMeta mutator that applies
+// it, rejecting unknown actions.
+func bulkMutator(req bulkRequest) (func(*core.SessionMeta), error) {
+	switch req.Action {
+	case "archive":
+		return func(m *core.SessionMeta) { m.Archived = true }, nil
+	case "unarchive":
+		return func(m *core.SessionMeta) { m.Archived = false }, nil
+	case "category":
+		value := req.Value
+		return func(m *core.SessionMeta) { m.Category = value }, nil
+	default:
+		return nil, &apiError{"unknown action: " + req.Action}
+	}
+}
+
 // openRequest is the body of POST /api/open: the session IDs to launch.
 type openRequest struct {
 	IDs []string `json:"ids"`
@@ -52,37 +209,6 @@ func (s *Server) handleOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]int{"opened": len(matched)})
-}
-
-// metaRequest is the body of POST /api/meta: the new organization metadata for
-// one session.
-type metaRequest struct {
-	ID       string   `json:"id"`
-	Folder   string   `json:"folder"`
-	Tags     []string `json:"tags"`
-	Archived bool     `json:"archived"`
-}
-
-func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request) {
-	var req metaRequest
-	if err := decodeJSON(r, &req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if req.ID == "" {
-		http.Error(w, "missing id", http.StatusBadRequest)
-		return
-	}
-	err := s.store.Update(req.ID, func(m *core.SessionMeta) {
-		m.Folder = req.Folder
-		m.Tags = req.Tags
-		m.Archived = req.Archived
-	})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	writeJSON(w, map[string]bool{"ok": true})
 }
 
 // selectByIDs returns the sessions whose ID is in ids, preserving the order of

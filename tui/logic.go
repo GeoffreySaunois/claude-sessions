@@ -18,22 +18,22 @@ const (
 	sortByLastActive sortMode = iota
 	// sortByProject groups sessions under their project (base name of Cwd).
 	sortByProject
-	// sortByFolder groups sessions under their user-assigned folder.
-	sortByFolder
+	// sortByCategory groups sessions under their user-assigned category.
+	sortByCategory
 )
 
 func (m sortMode) label() string {
 	switch m {
 	case sortByProject:
 		return "project"
-	case sortByFolder:
-		return "folder"
+	case sortByCategory:
+		return "category"
 	default:
 		return "last-active"
 	}
 }
 
-// next cycles last-active -> project -> folder -> last-active.
+// next cycles last-active -> project -> category -> last-active.
 func (m sortMode) next() sortMode {
 	return (m + 1) % 3
 }
@@ -47,13 +47,13 @@ func projectName(s core.Session) string {
 	return filepath.Base(s.Cwd)
 }
 
-// folderName is the display name for a session's folder grouping, falling back
-// to a stable bucket when the session has no folder assigned.
-func folderName(s core.Session) string {
-	if s.Folder == "" {
-		return "(no folder)"
+// categoryName is the display name for a session's category grouping, falling back
+// to a stable bucket when the session has no category assigned.
+func categoryName(s core.Session) string {
+	if s.Category == "" {
+		return "(no category)"
 	}
-	return s.Folder
+	return s.Category
 }
 
 // relativeTime renders the age of t as a compact human string ("now", "3m",
@@ -154,8 +154,8 @@ func buildRows(sessions []core.Session, mode sortMode) []row {
 	switch mode {
 	case sortByProject:
 		return groupRows(sessions, projectName)
-	case sortByFolder:
-		return groupRows(sessions, folderName)
+	case sortByCategory:
+		return groupRows(sessions, categoryName)
 	default:
 		rows := make([]row, 0, len(sessions))
 		for _, s := range sessions {

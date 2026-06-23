@@ -80,7 +80,7 @@ func (m Model) updateList(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "t":
 		m.enterTagEdit()
 	case "f":
-		m.enterFolderEdit()
+		m.enterCategoryEdit()
 	case "s":
 		m.cycleSort()
 	case "H":

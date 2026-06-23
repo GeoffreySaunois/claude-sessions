@@ -146,8 +146,8 @@ func overlayPrompt(mode inputMode) (string, bool) {
 		return "/", true
 	case modeEditTags:
 		return "tags (comma-separated): ", true
-	case modeEditFolder:
-		return "folder: ", true
+	case modeEditCategory:
+		return "category: ", true
 	default:
 		return "", false
 	}
@@ -158,7 +158,7 @@ func (m Model) renderFooter(s styles) string {
 	if m.help {
 		return renderHelp(s)
 	}
-	return s.keyHint.Render("j/k move · space pick · o open · / filter · a archive · t tags · f folder · s sort · T theme · H archived · r refresh · ? help · q quit")
+	return s.keyHint.Render("j/k move · space pick · o open · / filter · a archive · t tags · f category · s sort · T theme · H archived · r refresh · ? help · q quit")
 }
 
 // footerLines is the number of screen lines the footer occupies.
@@ -192,8 +192,8 @@ func helpPairs() [][2]string {
 		{"/", "filter by title/project (esc clears)"},
 		{"a", "archive / unarchive selected"},
 		{"t", "edit tags of cursor session"},
-		{"f", "set folder of cursor session"},
-		{"s", "cycle sort: last-active / project / folder"},
+		{"f", "set category of cursor session"},
+		{"s", "cycle sort: last-active / project / category"},
 		{"T", "cycle theme: system / light / dark"},
 		{"H", "show / hide archived sessions"},
 		{"r", "refresh from disk"},

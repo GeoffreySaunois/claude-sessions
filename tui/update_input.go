@@ -8,7 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// updateInput handles keys while a text-input overlay (filter / tag / folder)
+// updateInput handles keys while a text-input overlay (filter / tag / category)
 // is active.
 func (m Model) updateInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
@@ -48,21 +48,21 @@ func (m *Model) enterTagEdit() {
 	m.input.CursorEnd()
 }
 
-// enterFolderEdit opens the folder editor for the cursor session, seeded with
-// its existing folder.
-func (m *Model) enterFolderEdit() {
+// enterCategoryEdit opens the category editor for the cursor session, seeded with
+// its existing category.
+func (m *Model) enterCategoryEdit() {
 	s, ok := m.cursorSession()
 	if !ok {
 		return
 	}
-	m.mode = modeEditFolder
+	m.mode = modeEditCategory
 	m.editingID = s.ID
-	m.input.SetValue(s.Folder)
+	m.input.SetValue(s.Category)
 	m.input.Focus()
 	m.input.CursorEnd()
 }
 
-// cancelInput closes the overlay, discarding tag/folder edits. The filter is
+// cancelInput closes the overlay, discarding tag/category edits. The filter is
 // cleared so the list returns to its unfiltered state.
 func (m Model) cancelInput() Model {
 	if m.mode == modeFilter {
@@ -73,14 +73,14 @@ func (m Model) cancelInput() Model {
 	return m
 }
 
-// commitInput applies the overlay's value: filters stay applied, tag/folder
+// commitInput applies the overlay's value: filters stay applied, tag/category
 // edits persist to the store and reflect immediately.
 func (m Model) commitInput() Model {
 	switch m.mode {
 	case modeEditTags:
 		m.saveTags(parseTags(m.input.Value()))
-	case modeEditFolder:
-		m.saveFolder(strings.TrimSpace(m.input.Value()))
+	case modeEditCategory:
+		m.saveCategory(strings.TrimSpace(m.input.Value()))
 	}
 	m.closeInput()
 	return m
@@ -120,20 +120,20 @@ func (m *Model) saveTags(tags []string) {
 	m.status = "tags updated"
 }
 
-// saveFolder persists a new folder for the editing session and mirrors it in
-// memory, then rebuilds rows so folder grouping reflects the change.
-func (m *Model) saveFolder(folder string) {
+// saveCategory persists a new category for the editing session and mirrors it in
+// memory, then rebuilds rows so category grouping reflects the change.
+func (m *Model) saveCategory(category string) {
 	id := m.editingID
-	if err := m.store.Update(id, func(meta *core.SessionMeta) { meta.Folder = folder }); err != nil {
-		m.status = "folder update failed: " + err.Error()
+	if err := m.store.Update(id, func(meta *core.SessionMeta) { meta.Category = category }); err != nil {
+		m.status = "category update failed: " + err.Error()
 		return
 	}
 	for i := range m.sessions {
 		if m.sessions[i].ID == id {
-			m.sessions[i].Folder = folder
+			m.sessions[i].Category = category
 			break
 		}
 	}
 	m.rebuildRows()
-	m.status = "folder updated"
+	m.status = "category updated"
 }

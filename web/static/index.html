@@ -100,6 +100,7 @@
     font-size: 14px;
     line-height: 1.4;
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
   }
   a { color: var(--accent); }
 
@@ -121,11 +122,15 @@
   .dot.waiting { background: var(--waiting); }
   .dot.inactive { background: var(--inactive); }
 
+  /* The filter bar wraps into tidy rows of labelled controls instead of one
+     cramped line. */
   .controls {
-    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap;
     margin-top: 12px;
   }
-  input[type=text], input.cell {
+  .ctl { display: inline-flex; align-items: center; gap: 6px; }
+  .ctl > .lbl { color: var(--txt-faint); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+  input[type=text], input.cell, select.filter {
     background: var(--bg-2);
     border: 1px solid var(--line);
     color: var(--txt);
@@ -135,8 +140,9 @@
     font-family: var(--sans);
     outline: none;
   }
-  input[type=text]:focus, input.cell:focus { border-color: var(--accent); }
-  #search { flex: 1; min-width: 220px; }
+  select.filter { padding: 7px 9px; cursor: pointer; }
+  input[type=text]:focus, input.cell:focus, select.filter:focus { border-color: var(--accent); }
+  #search { flex: 1; min-width: 200px; }
 
   .seg {
     display: inline-flex; background: var(--bg-2); border: 1px solid var(--line);
@@ -152,6 +158,15 @@
   label.toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--txt-dim); font-size: 12px; cursor: pointer; user-select: none; }
   label.toggle input { accent-color: var(--accent); }
 
+  /* Kind filter: a row of toggle chips. */
+  .kindchips { display: inline-flex; gap: 5px; flex-wrap: wrap; }
+  .kindchip {
+    background: var(--bg-2); border: 1px solid var(--line); color: var(--txt-faint);
+    border-radius: 999px; padding: 4px 10px; font-size: 11px; cursor: pointer;
+    font-family: var(--sans); user-select: none; text-transform: capitalize;
+  }
+  .kindchip.on { background: color-mix(in srgb, var(--accent) 16%, transparent); border-color: var(--accent); color: var(--txt); }
+
   .btn {
     background: var(--accent); color: #07101f; border: none;
     border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 600;
@@ -159,24 +174,38 @@
   }
   .btn:disabled { background: var(--bg-3); color: var(--txt-faint); cursor: default; }
 
-  main { padding: 16px 20px 60px; }
+  main { padding: 16px 20px 80px; }
   .group { margin-bottom: 22px; }
   .group-head {
     display: flex; align-items: center; gap: 8px;
     color: var(--txt-dim); font-size: 12px; font-weight: 600;
     text-transform: uppercase; letter-spacing: .6px;
     padding: 0 2px 7px; border-bottom: 1px solid var(--line-soft); margin-bottom: 8px;
+    cursor: pointer; user-select: none;
   }
+  .group-head .caret { font-size: 10px; color: var(--txt-faint); width: 12px; transition: transform .12s; }
+  .group-head.collapsed .caret { transform: rotate(-90deg); }
   .group-head .n { color: var(--txt-faint); font-weight: 500; }
+  .group-head .ga {
+    margin-left: auto; display: inline-flex; gap: 5px; align-items: center;
+    text-transform: none; letter-spacing: 0;
+  }
+  .group-head input[type=checkbox] { margin: 0; }
+  .group-head .galbl { font-size: 11px; color: var(--txt-faint); font-weight: 500; }
+  .bulkrow { display: flex; gap: 10px; margin-bottom: 12px; }
+  .linkbtn {
+    background: none; border: none; color: var(--txt-dim); cursor: pointer;
+    font-size: 12px; text-decoration: underline; font-family: var(--sans); padding: 0;
+  }
 
   .table-wrap { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; min-width: 760px; }
+  table { width: 100%; border-collapse: collapse; min-width: 820px; }
   thead th {
     text-align: left; font-size: 11px; font-weight: 600; color: var(--txt-faint);
     text-transform: uppercase; letter-spacing: .5px;
     padding: 4px 10px; border-bottom: 1px solid var(--line-soft);
   }
-  tbody td { padding: 9px 10px; border-bottom: 1px solid var(--line-soft); vertical-align: middle; }
+  tbody td { padding: 9px 10px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
   tbody tr { transition: background .08s; }
   tbody tr:hover { background: var(--bg-2); }
   tbody tr.sel { background: color-mix(in srgb, var(--accent) 10%, transparent); }
@@ -196,6 +225,12 @@
   .badge.waiting { color: var(--waiting); background: var(--waiting-bg); }
   .badge.inactive { color: var(--inactive); background: var(--inactive-bg); }
 
+  .kindbadge {
+    display: inline-block; font-size: 10px; font-weight: 600; padding: 1px 6px;
+    border-radius: 5px; background: var(--bg-3); color: var(--txt-faint);
+    text-transform: uppercase; letter-spacing: .4px; margin-left: 6px; vertical-align: middle;
+  }
+
   .proj { font-family: var(--mono); font-size: 12.5px; color: var(--txt); }
   .title { color: var(--txt); }
   .title .muted { color: var(--txt-faint); font-style: italic; }
@@ -204,14 +239,65 @@
   .when { font-family: var(--mono); font-size: 12px; color: var(--txt-dim); white-space: nowrap; }
   .cwd { font-family: var(--mono); font-size: 11px; color: var(--txt-faint); margin-top: 2px; max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+  /* last-message preview: one dim line, click the caret to expand. */
+  .preview { display: flex; align-items: flex-start; gap: 5px; margin-top: 3px; max-width: 420px; }
+  .preview .pcaret { color: var(--txt-faint); font-size: 9px; cursor: pointer; user-select: none; padding-top: 2px; transition: transform .12s; }
+  .preview.open .pcaret { transform: rotate(90deg); }
+  .preview .ptext {
+    color: var(--txt-faint); font-size: 11.5px; cursor: pointer; flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .preview.open .ptext { white-space: pre-wrap; word-break: break-word; }
+
+  /* Notion-style selectors */
   .tags { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-  .tag { background: var(--bg-3); color: var(--txt-dim); font-size: 11px; padding: 2px 7px; border-radius: 6px; font-family: var(--mono); }
-  input.cell { padding: 5px 8px; font-size: 12px; font-family: var(--mono); width: 100%; }
-  .folder-cell, .tags-cell { min-width: 130px; }
+  .tag { display: inline-flex; align-items: center; gap: 4px; background: var(--bg-3); color: var(--txt-dim); font-size: 11px; padding: 2px 4px 2px 7px; border-radius: 6px; font-family: var(--mono); }
+  .tag .x { cursor: pointer; color: var(--txt-faint); font-size: 12px; line-height: 1; padding: 0 2px; }
+  .tag .x:hover { color: var(--danger); }
+  .cat-cell, .tags-cell { min-width: 150px; }
+
+  .selctl {
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+    background: var(--bg-2); border: 1px dashed var(--line); border-radius: 7px;
+    padding: 4px 9px; font-size: 12px; color: var(--txt-dim); font-family: var(--sans);
+  }
+  .selctl:hover { border-color: var(--accent); color: var(--txt); }
+  .cat-pill {
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+    color: var(--txt); border-radius: 7px; padding: 3px 9px; font-size: 12px; font-family: var(--sans);
+  }
+  .cat-pill:hover { border-color: var(--accent); }
+
+  /* Popover for category / tag pickers */
+  .popover {
+    position: absolute; z-index: 50; min-width: 220px; max-width: 280px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.35); padding: 8px; font-size: 13px;
+  }
+  .popover input.psearch {
+    width: 100%; background: var(--bg-2); border: 1px solid var(--line); color: var(--txt);
+    border-radius: 7px; padding: 7px 9px; font-size: 13px; outline: none; margin-bottom: 6px;
+  }
+  .popover input.psearch:focus { border-color: var(--accent); }
+  .poplist { max-height: 240px; overflow-y: auto; }
+  .popitem {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 6px;
+    cursor: pointer; color: var(--txt);
+  }
+  .popitem:hover { background: var(--bg-2); }
+  .popitem .check { width: 14px; color: var(--accent); font-size: 12px; }
+  .popitem.create { color: var(--accent); }
+  .popitem .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .popdiv { height: 1px; background: var(--line-soft); margin: 5px 0; }
+  .popitem.clear { color: var(--txt-faint); }
+  .popempty { color: var(--txt-faint); padding: 6px 8px; font-size: 12px; }
 
   .iconbtn {
     background: transparent; border: 1px solid var(--line); color: var(--txt-dim);
     border-radius: 6px; padding: 4px 8px; font-size: 11px; cursor: pointer; font-family: var(--sans);
+    white-space: nowrap;
   }
   .iconbtn:hover { border-color: var(--accent); color: var(--txt); }
   .iconbtn.on { color: var(--waiting); border-color: var(--waiting); }
@@ -220,18 +306,18 @@
 
   /* sticky action bar */
   .actionbar {
-    position: fixed; left: 50%; transform: translateX(-50%) translateY(120%);
+    position: fixed; left: 50%; transform: translateX(-50%) translateY(160%);
     bottom: 22px; z-index: 30;
     background: var(--bg-3); border: 1px solid var(--line);
     border-radius: 12px; padding: 10px 12px 10px 16px;
-    display: flex; align-items: center; gap: 14px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
     box-shadow: 0 10px 40px rgba(0,0,0,.5);
-    transition: transform .18s ease;
+    transition: transform .18s ease; max-width: calc(100vw - 40px);
   }
   .actionbar.show { transform: translateX(-50%) translateY(0); }
   .actionbar .n { font-size: 13px; color: var(--txt-dim); }
   .actionbar .n b { color: var(--txt); }
-  .linkbtn { background: none; border: none; color: var(--txt-dim); cursor: pointer; font-size: 12px; text-decoration: underline; }
+  .actionbar .iconbtn { padding: 6px 11px; font-size: 12px; }
 
   /* toast */
   #toast {
@@ -278,10 +364,25 @@
     <input type="text" id="search" placeholder="Search title, project, tags…" autocomplete="off" spellcheck="false">
     <div class="seg" id="groupseg">
       <button data-group="project" class="active">Group: Project</button>
-      <button data-group="folder">Folder</button>
+      <button data-group="category">Category</button>
       <button data-group="none">None</button>
     </div>
+    <span class="ctl"><span class="lbl">Status</span>
+      <select class="filter" id="statusFilter">
+        <option value="">all</option>
+        <option value="busy">busy</option>
+        <option value="waiting">waiting</option>
+        <option value="inactive">inactive</option>
+      </select></span>
+    <span class="ctl"><span class="lbl">Category</span>
+      <select class="filter" id="categoryFilter"><option value="">all</option></select></span>
+    <span class="ctl"><span class="lbl">Tag</span>
+      <select class="filter" id="tagFilter"><option value="">all</option></select></span>
+    <span class="ctl"><span class="lbl">Kinds</span>
+      <span class="kindchips" id="kindChips"></span></span>
     <label class="toggle"><input type="checkbox" id="showArchived"> Show archived</label>
+    <button class="linkbtn" id="expandAll">expand all</button>
+    <button class="linkbtn" id="collapseAll">collapse all</button>
   </div>
 </header>
 
@@ -292,6 +393,9 @@
 <div class="actionbar" id="actionbar">
   <span class="n"><b id="selCount">0</b> selected</span>
   <button class="btn" id="openBtn">Open selected</button>
+  <button class="iconbtn" id="bulkArchive">Archive all</button>
+  <button class="iconbtn" id="bulkUnarchive">Unarchive all</button>
+  <button class="iconbtn" id="bulkCategory">Move to category…</button>
   <button class="linkbtn" id="clearSel">clear</button>
 </div>
 
@@ -301,14 +405,51 @@
 (() => {
   "use strict";
 
+  const ALL_KINDS = ["main", "worktree", "background", "sdk", "example", "gym"];
+  const DEFAULT_KINDS = ["main", "worktree", "background"];
+  const LS = {
+    theme: "ccs-theme",
+    kinds: "ccs-kinds",
+    collapsed: "ccs-collapsed",
+  };
+
   const state = {
     sessions: [],
-    selected: new Set(),    // session ids
+    options: { categories: [], tags: [] },
+    selected: new Set(),         // session ids
     filter: "",
-    group: "project",       // project | folder | none
+    group: "project",            // project | category | none
     showArchived: false,
-    editing: new Set(),     // ids with a focused editable cell (skip clobber on refresh)
+    statusFilter: "",
+    categoryFilter: "",
+    tagFilter: "",
+    visibleKinds: loadKinds(),   // Set of kind strings
+    collapsed: loadCollapsed(),  // Set of group names
+    expandedPreviews: new Set(), // ids with the message preview expanded
+    popoverOpen: false,          // suppress refresh re-render while a popover is up
   };
+
+  // ---- localStorage helpers ------------------------------------------------
+  function loadKinds() {
+    try {
+      const raw = localStorage.getItem(LS.kinds);
+      if (raw) { const a = JSON.parse(raw); if (Array.isArray(a)) return new Set(a); }
+    } catch (e) {}
+    return new Set(DEFAULT_KINDS);
+  }
+  function saveKinds() {
+    try { localStorage.setItem(LS.kinds, JSON.stringify([...state.visibleKinds])); } catch (e) {}
+  }
+  function loadCollapsed() {
+    try {
+      const raw = localStorage.getItem(LS.collapsed);
+      if (raw) { const a = JSON.parse(raw); if (Array.isArray(a)) return new Set(a); }
+    } catch (e) {}
+    return new Set();
+  }
+  function saveCollapsed() {
+    try { localStorage.setItem(LS.collapsed, JSON.stringify([...state.collapsed])); } catch (e) {}
+  }
 
   // ---- data ----------------------------------------------------------------
   async function fetchSessions() {
@@ -317,19 +458,35 @@
     return res.json();
   }
 
+  async function fetchOptions() {
+    const res = await fetch("/api/options");
+    if (!res.ok) throw new Error("options " + res.status);
+    const o = await res.json();
+    // The API encodes empty option universes as JSON null; normalize to arrays
+    // so callers can always .filter / .includes.
+    return { categories: o.categories || [], tags: o.tags || [] };
+  }
+
   async function postMeta(meta) {
     const res = await fetch("/api/meta", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(meta),
     });
     if (!res.ok) throw new Error("meta " + res.status);
   }
 
+  async function postBulk(body) {
+    const res = await fetch("/api/bulk", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error("bulk " + res.status);
+    return res.json();
+  }
+
   async function postOpen(ids) {
     const res = await fetch("/api/open", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ids }),
     });
     if (!res.ok) throw new Error("open " + res.status);
@@ -360,19 +517,28 @@
   function matchesFilter(s) {
     const q = state.filter.trim().toLowerCase();
     if (!q) return true;
-    const hay = [s.title, projBase(s.cwd), s.cwd, (s.tags || []).join(" "), s.folder]
+    const hay = [s.title, projBase(s.cwd), s.cwd, (s.tags || []).join(" "), s.category, s.lastMessage]
       .join(" ").toLowerCase();
     return q.split(/\s+/).every(term => hay.includes(term));
   }
 
+  // All filters combine with AND.
+  function passesFilters(s) {
+    if (!state.showArchived && s.archived) return false;
+    if (!state.visibleKinds.has(s.kind)) return false;
+    if (state.statusFilter && s.status !== state.statusFilter) return false;
+    if (state.categoryFilter && (s.category || "") !== state.categoryFilter) return false;
+    if (state.tagFilter && !(s.tags || []).includes(state.tagFilter)) return false;
+    return matchesFilter(s);
+  }
+
   function visibleSessions() {
-    return state.sessions.filter(s =>
-      (state.showArchived || !s.archived) && matchesFilter(s));
+    return state.sessions.filter(passesFilters);
   }
 
   function groupKey(s) {
     if (state.group === "project") return projBase(s.cwd);
-    if (state.group === "folder") return s.folder || "(no folder)";
+    if (state.group === "category") return s.category || "(uncategorized)";
     return "";
   }
 
@@ -406,34 +572,204 @@
   }
 
   function titleCell(s) {
-    if (s.title && s.title.trim()) return el("span", { class: "title" }, s.title);
-    return el("span", { class: "title" }, el("span", { class: "muted" }, "untitled"));
+    const t = (s.title && s.title.trim())
+      ? el("span", { class: "title" }, s.title)
+      : el("span", { class: "title" }, el("span", { class: "muted" }, "untitled"));
+    const head = el("div", null, t);
+    // Show the kind badge on anything that isn't a plain main session, so
+    // revealed noise (sdk / example / gym / worktree / background) is obvious.
+    if (s.kind && s.kind !== "main") head.append(el("span", { class: "kindbadge" }, s.kind));
+    const out = el("div", null, head);
+    if (s.lastMessage && s.lastMessage.trim()) out.append(previewBlock(s));
+    return out;
   }
 
-  function editableInput(value, placeholder, onCommit, sessId) {
+  function previewBlock(s) {
+    const open = state.expandedPreviews.has(s.id);
+    const block = el("div", { class: "preview" + (open ? " open" : "") });
+    const toggle = () => {
+      if (state.expandedPreviews.has(s.id)) state.expandedPreviews.delete(s.id);
+      else state.expandedPreviews.add(s.id);
+      render();
+    };
+    block.append(
+      el("span", { class: "pcaret", onclick: toggle }, "▶"),
+      el("span", { class: "ptext", title: "click to expand", onclick: toggle }, s.lastMessage));
+    return block;
+  }
+
+  // ----- category single-select control + popover --------------------------
+  function categoryControl(s) {
+    const ctl = s.category
+      ? el("span", { class: "cat-pill" }, s.category)
+      : el("span", { class: "selctl" }, "＋ category");
+    ctl.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      openCategoryPopover(ctl, s);
+    });
+    return ctl;
+  }
+
+  function openCategoryPopover(anchor, s) {
+    openPopover(anchor, (pop, q, close) => {
+      pop.replaceChildren();
+      const search = pop.appendChild(searchInput(q));
+      const list = el("div", { class: "poplist" });
+      const opts = state.options.categories.filter(c => c.toLowerCase().includes(q.toLowerCase()));
+      for (const c of opts) {
+        const selected = c === s.category;
+        list.append(popItem(selected, c, () => { close(); setCategory(s, c); }));
+      }
+      const typed = q.trim();
+      const exact = state.options.categories.some(c => c.toLowerCase() === typed.toLowerCase());
+      if (typed && !exact) {
+        list.append(el("div", { class: "popitem create", onclick: () => { close(); setCategory(s, typed); } },
+          el("span", { class: "name" }, '➕ Create "' + typed + '"')));
+      }
+      if (!opts.length && !(typed && !exact)) list.append(el("div", { class: "popempty" }, "No categories"));
+      pop.append(list);
+      if (s.category) {
+        pop.append(el("div", { class: "popdiv" }));
+        pop.append(el("div", { class: "popitem clear", onclick: () => { close(); setCategory(s, ""); } },
+          el("span", { class: "name" }, "✕ Clear category")));
+      }
+      return search;
+    });
+  }
+
+  function setCategory(s, value) {
+    commitMeta(s, { category: value });
+  }
+
+  // ----- tag multi-select control + popover ---------------------------------
+  function tagsControl(s) {
+    const wrap = el("div", { class: "tags" });
+    for (const t of (s.tags || [])) {
+      wrap.append(el("span", { class: "tag" }, t,
+        el("span", { class: "x", title: "remove", onclick: (ev) => { ev.stopPropagation(); removeTag(s, t); } }, "×")));
+    }
+    const add = el("span", { class: "selctl", onclick: (ev) => { ev.stopPropagation(); openTagPopover(add, s); } }, "＋ tag");
+    wrap.append(add);
+    return wrap;
+  }
+
+  function openTagPopover(anchor, s) {
+    openPopover(anchor, (pop, q, close) => {
+      pop.replaceChildren();
+      const search = pop.appendChild(searchInput(q));
+      const list = el("div", { class: "poplist" });
+      const current = new Set(s.tags || []);
+      const opts = state.options.tags.filter(t => t.toLowerCase().includes(q.toLowerCase()));
+      for (const t of opts) {
+        // Keep the popover open on toggle so several tags can be set at once.
+        list.append(popItem(current.has(t), t, () => toggleTag(s, t, () => openTagPopover(anchor, s))));
+      }
+      const typed = q.trim();
+      const exact = state.options.tags.some(t => t.toLowerCase() === typed.toLowerCase());
+      if (typed && !exact) {
+        list.append(el("div", { class: "popitem create", onclick: () => { close(); addTag(s, typed); } },
+          el("span", { class: "name" }, '➕ Create "' + typed + '"')));
+      }
+      if (!opts.length && !(typed && !exact)) list.append(el("div", { class: "popempty" }, "No tags"));
+      pop.append(list);
+      return search;
+    });
+  }
+
+  function toggleTag(s, tag, reopen) {
+    const cur = new Set(s.tags || []);
+    if (cur.has(tag)) cur.delete(tag); else cur.add(tag);
+    commitMeta(s, { tags: [...cur] }).then(reopen);
+  }
+  function addTag(s, tag) {
+    const cur = new Set(s.tags || []); cur.add(tag);
+    commitMeta(s, { tags: [...cur] });
+  }
+  function removeTag(s, tag) {
+    commitMeta(s, { tags: (s.tags || []).filter(t => t !== tag) });
+  }
+
+  // ----- shared popover plumbing --------------------------------------------
+  let activePopover = null;
+
+  function popItem(selected, name, onclick) {
+    return el("div", { class: "popitem", onclick },
+      el("span", { class: "check" }, selected ? "✓" : ""),
+      el("span", { class: "name" }, name));
+  }
+
+  function searchInput(value) {
     const inp = el("input", {
-      class: "cell", type: "text", value: value || "", placeholder,
-      onfocus: () => state.editing.add(sessId),
-      onblur: () => { state.editing.delete(sessId); onCommit(inp.value); },
-      onkeydown: (ev) => { if (ev.key === "Enter") inp.blur(); if (ev.key === "Escape") { inp.value = value || ""; inp.blur(); } },
+      class: "psearch", type: "text", placeholder: "Search or create…",
+      value: value || "", autocomplete: "off", spellcheck: "false",
+    });
+    inp.addEventListener("input", () => {
+      if (!activePopover) return;
+      // Rebuild the list in place without losing focus.
+      const pop = inp.closest(".popover");
+      const sel = inp.selectionStart;
+      activePopover.query = inp.value;
+      activePopover.build(pop, inp.value, activePopover.close);
+      const fresh = pop.querySelector(".psearch");
+      fresh.focus();
+      try { fresh.setSelectionRange(sel, sel); } catch (e) {}
+    });
+    inp.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape") { ev.stopPropagation(); activePopover?.close(); }
     });
     return inp;
   }
 
-  function row(s) {
-    const tr = el("tr", { class: (state.selected.has(s.id) ? "sel " : "") + (s.archived ? "archived" : "") });
+  // openPopover mounts a positioned popover whose body `build(pop, query, close)`
+  // renders. It closes on outside-click and Escape.
+  function openPopover(anchor, build) {
+    closePopover();
+    const pop = el("div", { class: "popover" });
+    document.body.append(pop);
+    const rect = anchor.getBoundingClientRect();
+    pop.style.top = (window.scrollY + rect.bottom + 4) + "px";
+    let left = window.scrollX + rect.left;
+    pop.style.left = left + "px";
+    state.popoverOpen = true;
 
+    const close = () => closePopover();
+    activePopover = { el: pop, build, query: "", close };
+    build(pop, "", close);
+    // Clamp within viewport horizontally.
+    const pr = pop.getBoundingClientRect();
+    if (pr.right > window.innerWidth - 8) {
+      pop.style.left = Math.max(8, window.scrollX + window.innerWidth - pr.width - 8) + "px";
+    }
+    const first = pop.querySelector(".psearch");
+    if (first) first.focus();
+
+    setTimeout(() => {
+      document.addEventListener("mousedown", onOutside, true);
+      document.addEventListener("keydown", onEsc, true);
+    }, 0);
+    function onOutside(ev) { if (!pop.contains(ev.target)) close(); }
+    function onEsc(ev) { if (ev.key === "Escape") close(); }
+    activePopover.onOutside = onOutside;
+    activePopover.onEsc = onEsc;
+  }
+
+  function closePopover() {
+    if (!activePopover) return;
+    document.removeEventListener("mousedown", activePopover.onOutside, true);
+    document.removeEventListener("keydown", activePopover.onEsc, true);
+    activePopover.el.remove();
+    activePopover = null;
+    state.popoverOpen = false;
+    render();
+  }
+
+  // ---- rows & groups -------------------------------------------------------
+  function row(s) {
     const pick = el("input", {
       type: "checkbox",
       onchange: (ev) => toggleSelect(s.id, ev.target.checked),
     });
     pick.checked = state.selected.has(s.id);
-
-    const folderInp = editableInput(s.folder, "folder", (v) => commitMeta(s, { folder: v.trim() }), s.id);
-    const tagsInp = editableInput((s.tags || []).join(", "), "tag, tag", (v) => {
-      const tags = v.split(",").map(t => t.trim()).filter(Boolean);
-      commitMeta(s, { tags });
-    }, s.id);
 
     const archBtn = el("button", {
       class: "iconbtn" + (s.archived ? " on" : ""),
@@ -445,22 +781,45 @@
       el("div", { class: "proj" }, projBase(s.cwd)),
       el("div", { class: "cwd", title: s.cwd }, s.cwd || ""));
 
-    return el("tr", { class: tr.className },
+    return el("tr", { class: (state.selected.has(s.id) ? "sel " : "") + (s.archived ? "archived" : "") },
       el("td", { class: "col-pick" }, pick),
       el("td", { class: "col-status" }, statusBadge(s.status)),
       projTd,
       el("td", null, titleCell(s)),
       el("td", { class: "col-when" }, el("span", { class: "when", title: s.lastActive }, relTime(s.lastActive))),
       el("td", null, s.gitBranch ? el("span", { class: "branch" }, s.gitBranch) : el("span", { class: "muted" }, "")),
-      el("td", { class: "folder-cell" }, folderInp),
-      el("td", { class: "tags-cell" }, tagsInp),
+      el("td", { class: "cat-cell" }, categoryControl(s)),
+      el("td", { class: "tags-cell" }, tagsControl(s)),
       el("td", null, archBtn));
   }
 
-  function groupBlock(name, sessions) {
-    const head = name
-      ? el("div", { class: "group-head" }, name, el("span", { class: "n" }, "· " + sessions.length))
-      : null;
+  function groupHead(name, sessions) {
+    const collapsed = state.collapsed.has(name);
+    const allSel = sessions.length > 0 && sessions.every(s => state.selected.has(s.id));
+    const groupCheck = el("input", { type: "checkbox", title: "Select all in group" });
+    groupCheck.checked = allSel;
+    groupCheck.addEventListener("click", (ev) => ev.stopPropagation());
+    groupCheck.addEventListener("change", (ev) => {
+      for (const s of sessions) {
+        if (ev.target.checked) state.selected.add(s.id); else state.selected.delete(s.id);
+      }
+      render();
+    });
+
+    const head = el("div", { class: "group-head" + (collapsed ? " collapsed" : "") },
+      el("span", { class: "caret" }, "▾"),
+      el("span", null, name),
+      el("span", { class: "n" }, "· " + sessions.length),
+      el("span", { class: "ga" }, groupCheck, el("span", { class: "galbl" }, "all")));
+    head.addEventListener("click", () => {
+      if (state.collapsed.has(name)) state.collapsed.delete(name); else state.collapsed.add(name);
+      saveCollapsed();
+      render();
+    });
+    return head;
+  }
+
+  function groupTable(sessions) {
     const thead = el("thead", null, el("tr", null,
       el("th", { class: "col-pick" }),
       el("th", { class: "col-status" }, "Status"),
@@ -468,16 +827,27 @@
       el("th", null, "Title"),
       el("th", { class: "col-when" }, "Active"),
       el("th", null, "Branch"),
-      el("th", null, "Folder"),
+      el("th", null, "Category"),
       el("th", null, "Tags"),
       el("th", null, "")));
     const tbody = el("tbody");
     for (const s of sessions) tbody.append(row(s));
-    return el("div", { class: "group" }, head,
-      el("div", { class: "table-wrap" }, el("table", null, thead, tbody)));
+    return el("div", { class: "table-wrap" }, el("table", null, thead, tbody));
+  }
+
+  function groupBlock(name, sessions) {
+    const block = el("div", { class: "group" });
+    if (name) {
+      block.append(groupHead(name, sessions));
+      if (state.collapsed.has(name)) return block;
+    }
+    block.append(groupTable(sessions));
+    return block;
   }
 
   function render() {
+    // Never tear down the DOM out from under an open popover.
+    if (state.popoverOpen) { renderCounts(); renderActionBar(); return; }
     const main = document.getElementById("main");
     const sessions = visibleSessions();
     main.replaceChildren();
@@ -494,7 +864,11 @@
 
   function renderCounts() {
     const c = { busy: 0, waiting: 0, inactive: 0 };
-    for (const s of state.sessions) if (!s.archived || state.showArchived) c[s.status]++;
+    for (const s of state.sessions) {
+      if (!state.visibleKinds.has(s.kind)) continue;
+      if (s.archived && !state.showArchived) continue;
+      c[s.status]++;
+    }
     const box = document.getElementById("counts");
     box.replaceChildren(
       countPill("busy", c.busy), countPill("waiting", c.waiting), countPill("inactive", c.inactive));
@@ -515,29 +889,81 @@
     bar.classList.toggle("show", n > 0);
   }
 
+  // ---- filter controls render ----------------------------------------------
+  function renderKindChips() {
+    const box = document.getElementById("kindChips");
+    box.replaceChildren();
+    for (const k of ALL_KINDS) {
+      const on = state.visibleKinds.has(k);
+      const chip = el("span", { class: "kindchip" + (on ? " on" : "") }, k);
+      chip.addEventListener("click", () => {
+        if (state.visibleKinds.has(k)) state.visibleKinds.delete(k); else state.visibleKinds.add(k);
+        saveKinds();
+        renderKindChips();
+        pruneSelection();
+        render();
+      });
+      box.append(chip);
+    }
+  }
+
+  function syncOptionFilters() {
+    fillSelect(document.getElementById("categoryFilter"), state.options.categories, state.categoryFilter);
+    fillSelect(document.getElementById("tagFilter"), state.options.tags, state.tagFilter);
+  }
+
+  function fillSelect(sel, values, current) {
+    const want = current && !values.includes(current) ? [current, ...values] : values;
+    sel.replaceChildren(el("option", { value: "" }, "all"));
+    for (const v of want) sel.append(el("option", { value: v }, v));
+    sel.value = current || "";
+  }
+
   // ---- mutations -----------------------------------------------------------
   function toggleSelect(id, on) {
     if (on) state.selected.add(id); else state.selected.delete(id);
-    // update only affected rows' class cheaply by re-render
     render();
   }
 
   async function commitMeta(s, patch) {
-    const next = {
-      id: s.id,
-      folder: patch.folder !== undefined ? patch.folder : s.folder,
-      tags: patch.tags !== undefined ? patch.tags : (s.tags || []),
-      archived: patch.archived !== undefined ? patch.archived : s.archived,
-    };
-    // optimistic local update
-    Object.assign(s, { folder: next.folder, tags: next.tags, archived: next.archived });
+    // Optimistic local update so the row reflects the change immediately.
+    if (patch.category !== undefined) s.category = patch.category;
+    if (patch.tags !== undefined) s.tags = patch.tags;
+    if (patch.archived !== undefined) s.archived = patch.archived;
+    const body = { id: s.id };
+    if (patch.category !== undefined) body.category = patch.category;
+    if (patch.tags !== undefined) body.tags = patch.tags;
+    if (patch.archived !== undefined) body.archived = patch.archived;
     try {
-      await postMeta(next);
+      await postMeta(body);
+      // Locally register any newly-created option so it appears without a reload.
+      if (patch.category) registerOption("categories", patch.category);
+      if (patch.tags) for (const t of patch.tags) registerOption("tags", t);
+      syncOptionFilters();
       toast("Saved");
     } catch (e) {
       toast("Save failed: " + e.message, true);
     }
-    await refresh();
+    render();
+  }
+
+  function registerOption(kind, value) {
+    if (value && !state.options[kind].includes(value)) {
+      state.options[kind] = [...state.options[kind], value].sort((a, b) => a.localeCompare(b));
+    }
+  }
+
+  async function runBulk(action, value) {
+    const ids = [...state.selected];
+    if (!ids.length) return;
+    try {
+      const res = await postBulk({ ids, action, value: value || "" });
+      if (value) registerOption("categories", value);
+      toast("Updated " + res.updated + " session" + (res.updated === 1 ? "" : "s"));
+      await refresh();
+    } catch (e) {
+      toast("Bulk failed: " + e.message, true);
+    }
   }
 
   async function openSelected() {
@@ -555,14 +981,41 @@
     }
   }
 
+  // "Move to category…": a popover anchored on the bulk button. Reuses the
+  // category picker shape (search + existing options + create row).
+  function openBulkCategoryPopover(anchor) {
+    openPopover(anchor, (pop, q, close) => {
+      pop.replaceChildren();
+      const search = pop.appendChild(searchInput(q));
+      const list = el("div", { class: "poplist" });
+      const opts = state.options.categories.filter(c => c.toLowerCase().includes(q.toLowerCase()));
+      for (const c of opts) list.append(popItem(false, c, () => { close(); runBulk("category", c); }));
+      const typed = q.trim();
+      const exact = state.options.categories.some(c => c.toLowerCase() === typed.toLowerCase());
+      if (typed && !exact) {
+        list.append(el("div", { class: "popitem create", onclick: () => { close(); runBulk("category", typed); } },
+          el("span", { class: "name" }, '➕ Create "' + typed + '"')));
+      }
+      if (!opts.length && !(typed && !exact)) list.append(el("div", { class: "popempty" }, "No categories"));
+      pop.append(list);
+      pop.append(el("div", { class: "popdiv" }));
+      pop.append(el("div", { class: "popitem clear", onclick: () => { close(); runBulk("category", ""); } },
+        el("span", { class: "name" }, "✕ Clear category")));
+      return search;
+    });
+  }
+
   // ---- refresh loop --------------------------------------------------------
   async function refresh() {
-    // Don't clobber a cell the user is actively editing.
-    if (state.editing.size > 0) return;
+    // Don't clobber an open popover — the user may be mid-edit. Bulk actions
+    // close their popover before calling refresh, so this never blocks them.
+    if (state.popoverOpen) return;
     try {
-      const sessions = await fetchSessions();
+      const [sessions, options] = await Promise.all([fetchSessions(), fetchOptions()]);
       state.sessions = sessions;
+      state.options = options;
       pruneSelection();
+      syncOptionFilters();
       render();
     } catch (e) {
       toast("Refresh failed: " + e.message, true);
@@ -597,7 +1050,7 @@
 
   function currentTheme() {
     try {
-      const m = localStorage.getItem("ccs-theme");
+      const m = localStorage.getItem(LS.theme);
       if (m === "light" || m === "dark") return m;
     } catch (e) {}
     return "system";
@@ -610,8 +1063,8 @@
       document.documentElement.removeAttribute("data-theme");
     }
     try {
-      if (mode === "system") localStorage.removeItem("ccs-theme");
-      else localStorage.setItem("ccs-theme", mode);
+      if (mode === "system") localStorage.removeItem(LS.theme);
+      else localStorage.setItem(LS.theme, mode);
     } catch (e) {}
     renderThemeBtn(mode);
   }
@@ -630,17 +1083,38 @@
     applyTheme(THEME_CYCLE[(i + 1) % THEME_CYCLE.length]);
   }
 
+  // ---- expand / collapse all -----------------------------------------------
+  function currentGroupNames() {
+    return buildGroups(visibleSessions()).map(([name]) => name).filter(Boolean);
+  }
+  function collapseAll() {
+    for (const n of currentGroupNames()) state.collapsed.add(n);
+    saveCollapsed(); render();
+  }
+  function expandAll() {
+    state.collapsed.clear();
+    saveCollapsed(); render();
+  }
+
   // ---- wiring --------------------------------------------------------------
   function wireControls() {
     renderThemeBtn(currentTheme());
+    renderKindChips();
     document.getElementById("themeBtn").addEventListener("click", cycleTheme);
     document.getElementById("search").addEventListener("input", (e) => {
-      state.filter = e.target.value;
-      render();
+      state.filter = e.target.value; render();
     });
     document.getElementById("showArchived").addEventListener("change", (e) => {
-      state.showArchived = e.target.checked;
-      render();
+      state.showArchived = e.target.checked; pruneSelection(); render();
+    });
+    document.getElementById("statusFilter").addEventListener("change", (e) => {
+      state.statusFilter = e.target.value; render();
+    });
+    document.getElementById("categoryFilter").addEventListener("change", (e) => {
+      state.categoryFilter = e.target.value; render();
+    });
+    document.getElementById("tagFilter").addEventListener("change", (e) => {
+      state.tagFilter = e.target.value; render();
     });
     document.getElementById("groupseg").addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-group]");
@@ -649,10 +1123,15 @@
       for (const b of e.currentTarget.children) b.classList.toggle("active", b === btn);
       render();
     });
+    document.getElementById("expandAll").addEventListener("click", expandAll);
+    document.getElementById("collapseAll").addEventListener("click", collapseAll);
     document.getElementById("openBtn").addEventListener("click", openSelected);
+    document.getElementById("bulkArchive").addEventListener("click", () => runBulk("archive"));
+    document.getElementById("bulkUnarchive").addEventListener("click", () => runBulk("unarchive"));
+    document.getElementById("bulkCategory").addEventListener("click", (e) =>
+      openBulkCategoryPopover(e.currentTarget));
     document.getElementById("clearSel").addEventListener("click", () => {
-      state.selected.clear();
-      render();
+      state.selected.clear(); render();
     });
   }
 

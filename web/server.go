@@ -7,26 +7,21 @@ package web
 import (
 	"embed"
 	"net/http"
-
-	"claude-sessions/core"
 )
 
 //go:embed static/*
 var staticFS embed.FS
 
-// Server holds the dependencies and routing for the dashboard.
+// Server holds the routing for the dashboard. It keeps no long-lived metadata
+// store: handlers that read options or mutate load a fresh core.MetaStore so
+// they never serve stale state.
 type Server struct {
-	store *core.MetaStore
-	mux   *http.ServeMux
+	mux *http.ServeMux
 }
 
-// NewServer builds a Server with its routes wired and the metadata store loaded.
+// NewServer builds a Server with its routes wired.
 func NewServer() (*Server, error) {
-	store, err := core.LoadMetaStore()
-	if err != nil {
-		return nil, err
-	}
-	s := &Server{store: store, mux: http.NewServeMux()}
+	s := &Server{mux: http.NewServeMux()}
 	s.routes()
 	return s, nil
 }
@@ -39,6 +34,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /", s.handleIndex)
 	s.mux.HandleFunc("GET /api/sessions", s.handleSessions)
-	s.mux.HandleFunc("POST /api/open", s.handleOpen)
+	s.mux.HandleFunc("GET /api/options", s.handleGetOptions)
+	s.mux.HandleFunc("POST /api/options", s.handleAddOption)
 	s.mux.HandleFunc("POST /api/meta", s.handleMeta)
+	s.mux.HandleFunc("POST /api/bulk", s.handleBulk)
+	s.mux.HandleFunc("POST /api/open", s.handleOpen)
 }

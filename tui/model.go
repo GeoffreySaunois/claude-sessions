@@ -8,14 +8,14 @@ import (
 )
 
 // inputMode is the model's interaction mode: the default list, or a text-entry
-// overlay (filter / tag edit / folder edit).
+// overlay (filter / tag edit / category edit).
 type inputMode int
 
 const (
 	modeList inputMode = iota
 	modeFilter
 	modeEditTags
-	modeEditFolder
+	modeEditCategory
 )
 
 // Model is the full TUI state: the loaded sessions, the user's view settings
@@ -35,8 +35,8 @@ type Model struct {
 	sort         sortMode
 	showArchived bool
 
-	input     textinput.Model // shared by filter / tag / folder modes
-	editingID string          // session being edited in tag/folder mode
+	input     textinput.Model // shared by filter / tag / category modes
+	editingID string          // session being edited in tag/category mode
 
 	status string // transient one-line message shown under the title
 	help   bool   // whether the full help footer is expanded

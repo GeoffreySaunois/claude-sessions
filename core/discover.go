@@ -21,6 +21,8 @@ type transcriptLine struct {
 	Cwd         string         `json:"cwd"`
 	GitBranch   string         `json:"gitBranch"`
 	Version     string         `json:"version"`
+	Entrypoint  string         `json:"entrypoint"`  // "cli", "sdk-cli", …
+	SessionKind string         `json:"sessionKind"` // "bg", …
 	AiTitle     string         `json:"aiTitle"`     // on ai-title rows
 	CustomTitle string         `json:"customTitle"` // on custom-title rows
 	Message     *transcriptMsg `json:"message"`
@@ -77,21 +79,43 @@ func parseTranscript(projDir, name string) (Session, bool) {
 		SizeBytes:  info.Size(),
 		Status:     StatusInactive,
 	}
-	scanTranscriptHead(path, &s)
+	entrypoint, sessionKind := scanTranscriptHead(path, &s)
+	s.Kind = classifyKind(s.Cwd, entrypoint, sessionKind)
+	s.LastMessage = readLastMessage(path, info.Size())
 	if s.Title == "" {
 		s.Title = s.ID
 	}
 	return s, true
 }
 
+// classifyKind separates the user's interactive work from automated and fixture
+// runs, using the working directory first and the launch metadata as a fallback.
+func classifyKind(cwd, entrypoint, sessionKind string) Kind {
+	switch {
+	case strings.Contains(cwd, "/examples/"):
+		return KindExample
+	case strings.Contains(cwd, "/.gym/worktrees"):
+		return KindGym
+	case entrypoint == "sdk-cli":
+		return KindSDK
+	case strings.Contains(cwd, "/.claude/worktrees"):
+		return KindWorktree
+	case sessionKind == "bg":
+		return KindBackground
+	default:
+		return KindMain
+	}
+}
+
 // scanTranscriptHead reads up to metadataScanBytes and fills cwd, branch,
-// version and title. A custom title wins over an ai title, which wins over the
+// version and title, returning the launch entrypoint and session kind for
+// classification. A custom title wins over an ai title, which wins over the
 // first user prompt; the last-seen title of each kind is kept so a renamed
 // session shows its current name.
-func scanTranscriptHead(path string, s *Session) {
+func scanTranscriptHead(path string, s *Session) (entrypoint, sessionKind string) {
 	f, err := os.Open(path)
 	if err != nil {
-		return
+		return "", ""
 	}
 	defer f.Close()
 
@@ -113,6 +137,12 @@ func scanTranscriptHead(path string, s *Session) {
 		if s.Version == "" && line.Version != "" {
 			s.Version = line.Version
 		}
+		if entrypoint == "" && line.Entrypoint != "" {
+			entrypoint = line.Entrypoint
+		}
+		if sessionKind == "" && line.SessionKind != "" {
+			sessionKind = line.SessionKind
+		}
 		switch line.Type {
 		case "custom-title":
 			if line.CustomTitle != "" {
@@ -129,6 +159,57 @@ func scanTranscriptHead(path string, s *Session) {
 		}
 	}
 	s.Title = pickTitle(customTitle, aiTitle, firstPrompt)
+	return entrypoint, sessionKind
+}
+
+// lastMessageScanBytes caps how much of the transcript tail is read for the
+// last-message preview.
+const lastMessageScanBytes = 128 * 1024
+
+// readLastMessage returns a cleaned preview of the most recent user/assistant
+// message, scanning only the transcript tail so it stays fast on large files.
+func readLastMessage(path string, size int64) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+
+	offset := size - lastMessageScanBytes
+	if offset < 0 {
+		offset = 0
+	}
+	if _, err := f.Seek(offset, io.SeekStart); err != nil {
+		return ""
+	}
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(string(data), "\n")
+	if offset > 0 && len(lines) > 0 {
+		lines = lines[1:] // drop the partial first line from mid-file seek
+	}
+	return lastMessagePreview(lines)
+}
+
+// lastMessagePreview walks the lines from the end and returns the first
+// displayable user/assistant text, truncated to a preview length.
+func lastMessagePreview(lines []string) string {
+	for i := len(lines) - 1; i >= 0; i-- {
+		var line transcriptLine
+		if json.Unmarshal([]byte(lines[i]), &line) != nil || line.Message == nil {
+			continue
+		}
+		if line.Type != "user" && line.Type != "assistant" {
+			continue
+		}
+		text := cleanPrompt(firstUserText(line.Message.Content))
+		if strings.TrimSpace(text) != "" {
+			return truncate(strings.TrimSpace(text), 600)
+		}
+	}
+	return ""
 }
 
 func pickTitle(custom, ai, prompt string) string {
