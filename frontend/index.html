@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Claude Sessions</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>%F0%9F%93%8C</text></svg>"
+    />
+    <script>
+      // Apply the saved theme before first paint to avoid a flash of the default palette.
+      (() => {
+        try {
+          const m = localStorage.getItem("ccs-theme");
+          if (m === "light" || m === "dark")
+            document.documentElement.setAttribute("data-theme", m);
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

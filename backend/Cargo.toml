@@ -1,0 +1,21 @@
+[package]
+name = "ccs"
+version = "0.1.0"
+edition = "2021"
+description = "Claude Code sessions dashboard — JSON API over ~/.claude plus an embedded SPA"
+
+[[bin]]
+name = "ccs"
+path = "src/main.rs"
+
+[dependencies]
+axum = "=0.8.8"
+tokio = { version = "=1.52.1", features = ["rt-multi-thread", "macros", "net", "signal"] }
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.149"
+rust-embed = "=8.11.0"
+mime_guess = "=2.0.5"
+rustix = { version = "=1.1.4", features = ["process"] }
+
+[profile.release]
+opt-level = 3
