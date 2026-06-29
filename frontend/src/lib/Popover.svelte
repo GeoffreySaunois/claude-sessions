@@ -72,6 +72,14 @@
     });
   }
 
+  // Move the popover to <body> so a row's `:hover { transform }` (which would
+  // otherwise become the containing block for this position:fixed element and
+  // make it jump as the mouse moves between rows) can never capture it.
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node);
+    return { destroy: () => node.parentNode?.removeChild(node) };
+  }
+
   function pick(value: string) {
     onpick(value);
     if (!keepOpen) onclose();
@@ -105,7 +113,7 @@
   });
 </script>
 
-<div class="popover" bind:this={popEl} {style}>
+<div class="popover" use:portal bind:this={popEl} {style}>
   <input
     class="psearch"
     type="text"

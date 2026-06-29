@@ -23,9 +23,30 @@ const DEFAULT_KINDS: Session["kind"][] = ["main", "worktree", "background"];
 const LS = {
   kinds: "ccs-browse-kinds",
   collapsed: "ccs-collapsed",
+  prefs: "ccs-prefs",
 };
 
 export type GroupMode = "project" | "category" | "none";
+
+// Main-view preferences persisted across reloads (search, grouping, filters).
+interface ViewPrefs {
+  filter: string;
+  group: GroupMode;
+  showArchived: boolean;
+  statusFilter: string;
+  categoryFilter: string;
+  tagFilter: string;
+}
+function loadPrefs(): Partial<ViewPrefs> {
+  try {
+    const raw = localStorage.getItem(LS.prefs);
+    if (raw) return JSON.parse(raw) as Partial<ViewPrefs>;
+  } catch (e) {
+    /* ignore */
+  }
+  return {};
+}
+const PREFS = loadPrefs();
 
 function loadStringSet(key: string, fallback: string[]): Set<string> {
   try {
@@ -61,12 +82,12 @@ class SessionStore {
 
   // ---- Main (pinned) view ----
   selected = $state<Set<string>>(new Set());
-  filter = $state("");
-  group = $state<GroupMode>("project");
-  showArchived = $state(false);
-  statusFilter = $state("");
-  categoryFilter = $state("");
-  tagFilter = $state("");
+  filter = $state(PREFS.filter ?? "");
+  group = $state<GroupMode>(PREFS.group ?? "project");
+  showArchived = $state(PREFS.showArchived ?? false);
+  statusFilter = $state(PREFS.statusFilter ?? "");
+  categoryFilter = $state(PREFS.categoryFilter ?? "");
+  tagFilter = $state(PREFS.tagFilter ?? "");
   collapsed = $state<Set<string>>(loadStringSet(LS.collapsed, []));
   // Preview-expand state is per view so expanding a row in the Browse modal
   // doesn't toggle the same session's row in the Main list behind it.
@@ -233,6 +254,29 @@ class SessionStore {
 
   resetFocus(): void {
     this.focusIndex = -1;
+  }
+
+  // Move the keyboard focus to a specific session (e.g. when its row is clicked).
+  focusSessionId(id: string): void {
+    const i = this.activeList.findIndex((s) => s.id === id);
+    if (i >= 0) this.focusIndex = i;
+  }
+
+  // Persist the Main-view preferences (search, grouping, filters) across reloads.
+  savePrefs(): void {
+    try {
+      const prefs: ViewPrefs = {
+        filter: this.filter,
+        group: this.group,
+        showArchived: this.showArchived,
+        statusFilter: this.statusFilter,
+        categoryFilter: this.categoryFilter,
+        tagFilter: this.tagFilter,
+      };
+      localStorage.setItem(LS.prefs, JSON.stringify(prefs));
+    } catch (e) {
+      /* ignore */
+    }
   }
 
   toggleFocusedSelect(): void {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { store } from "./store.svelte";
   import { relTime, tildePath } from "./derive";
+  import { focusOnClick } from "./clickable";
   import StatusBadge from "./StatusBadge.svelte";
   import TitleCell from "./TitleCell.svelte";
   import CategoryControl from "./CategoryControl.svelte";
@@ -30,6 +31,7 @@
 
 <article
   bind:this={rowEl}
+  use:focusOnClick={() => store.focusSessionId(session.id)}
   class="row"
   class:selected
   class:kfocus={focused}

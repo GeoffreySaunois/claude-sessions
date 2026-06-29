@@ -37,6 +37,19 @@
     void store.browseOpen;
     store.clampFocus();
   });
+
+  // Persist the Main-view preferences (search, grouping, filters) across reloads.
+  $effect(() => {
+    void [
+      store.filter,
+      store.group,
+      store.showArchived,
+      store.statusFilter,
+      store.categoryFilter,
+      store.tagFilter,
+    ];
+    store.savePrefs();
+  });
 </script>
 
 <svelte:window onkeydown={handleKeydown} />

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { store } from "./store.svelte";
   import { projBase, relTime, tildePath } from "./derive";
+  import { focusOnClick } from "./clickable";
   import StatusBadge from "./StatusBadge.svelte";
   import TitleCell from "./TitleCell.svelte";
   import PinControl from "./PinControl.svelte";
@@ -18,6 +19,7 @@
 
 <tr
   bind:this={rowEl}
+  use:focusOnClick={() => store.focusSessionId(session.id)}
   class:sel={selected}
   class:kfocus={focused}
   oncontextmenu={(e) => {

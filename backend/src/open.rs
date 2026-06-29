@@ -31,8 +31,8 @@ impl Default for OpenConfig {
     }
 }
 
-/// open launches the given sessions: the first into a fresh Ghostty tab, each
-/// subsequent one into a split of that tab, every surface resuming its session.
+/// open launches the given sessions: each one into a split of the currently
+/// focused Ghostty pane, every surface resuming its session.
 pub fn open(sessions: &[Session], cfg: &OpenConfig) -> std::io::Result<()> {
     if sessions.is_empty() {
         return Ok(());
@@ -54,14 +54,12 @@ fn build_ghostty_script(sessions: &[Session], cfg: &OpenConfig) -> String {
     b.push_str("tell application \"Ghostty\" to activate\n");
     b.push_str("delay 0.3\n");
     b.push_str("tell application \"System Events\"\n");
-    for (i, s) in sessions.iter().enumerate() {
-        if i == 0 {
-            b.push_str("\tkeystroke \"t\" using command down\n"); // new tab
-        } else {
-            b.push('\t');
-            b.push_str(split_key);
-            b.push('\n');
-        }
+    for s in sessions.iter() {
+        // Every session opens as a split of the currently-focused pane (⌘D, or
+        // ⌘⇧D for a vertical stack) — no new tab.
+        b.push('\t');
+        b.push_str(split_key);
+        b.push('\n');
         let _ = writeln!(b, "\tdelay {}", format_delay(cfg.split_delay));
         let _ = writeln!(
             b,
@@ -130,14 +128,14 @@ mod tests {
         }
     }
 
-    // The first session opens a new tab; the second uses a split. The resume
-    // command must shell-quote the cwd and substitute the id.
+    // Every session opens as a split (⌘D), never a new tab. The resume command
+    // must shell-quote the cwd and substitute the id.
     #[test]
-    fn script_uses_tab_then_split_and_quotes_cwd() {
+    fn script_uses_splits_only_and_quotes_cwd() {
         let sessions = vec![session("id1", "/a b"), session("id2", "/c")];
         let script = build_ghostty_script(&sessions, &OpenConfig::default());
-        assert!(script.contains("keystroke \"t\" using command down"));
-        assert!(script.contains("keystroke \"d\" using command down"));
+        assert!(!script.contains("keystroke \"t\""));
+        assert_eq!(script.matches("keystroke \"d\" using command down").count(), 2);
         assert!(script.contains(r"cd '/a b' && claude --resume id1"));
         assert!(script.contains("delay 0.45"));
     }
