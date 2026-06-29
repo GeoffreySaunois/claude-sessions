@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Claude Sessions</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>%F0%9F%93%8C</text></svg>">
 <style>
   /* Light palette is the default. Status colors are darkened so they stay
      legible as foreground text on near-white backgrounds. */
@@ -270,6 +271,14 @@
   }
   .preview.open .ptext { white-space: pre-wrap; word-break: break-word; }
 
+  /* full-text search match excerpt, shown under the title for content hits. */
+  .search-hit { display: flex; align-items: flex-start; gap: 5px; margin-top: 3px; max-width: 460px; }
+  .search-hit .shicon { font-size: 10px; padding-top: 1px; flex-shrink: 0; }
+  .search-hit .shtext {
+    font-size: 11.5px; color: var(--accent); flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
   /* Notion-style selectors */
   .tags { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
   .tag { display: inline-flex; align-items: center; gap: 4px; background: var(--bg-3); color: var(--txt-dim); font-size: 11px; padding: 2px 4px 2px 7px; border-radius: 6px; font-family: var(--mono); }
@@ -451,7 +460,7 @@
     <button id="themeBtn" type="button" title="Toggle theme"></button>
   </div>
   <div class="controls">
-    <input type="text" id="search" class="searchbox" placeholder="Search pinned by title, project, tags…" autocomplete="off" spellcheck="false">
+    <input type="text" id="search" class="searchbox" placeholder="Search pinned — title, project, tags, message text…" autocomplete="off" spellcheck="false">
     <div class="seg" id="groupseg">
       <button data-group="project" class="active">Group: Project</button>
       <button data-group="category">Category</button>
@@ -497,7 +506,7 @@
       <button class="modal-close" id="browseClose" type="button" title="Close (Esc)" aria-label="Close">✕</button>
     </div>
     <div class="modal-controls">
-      <input type="text" id="browseSearch" class="searchbox" placeholder="Search every session…" autocomplete="off" spellcheck="false">
+      <input type="text" id="browseSearch" class="searchbox" placeholder="Search every session — incl. full conversation text…" autocomplete="off" spellcheck="false">
       <span class="ctl"><span class="lbl">Status</span>
         <select class="filter" id="browseStatusFilter">
           <option value="">all</option>
@@ -561,7 +570,12 @@
     browseKinds: loadKinds(),    // Set of kind strings, modal only
     // ---- shared ----
     popoverOpen: false,          // suppress refresh re-render while a popover is up
+    content: { query: "", matches: new Map() }, // server-side full-text results
   };
+
+  // renderingQuery tracks which search box drove the current render, so a
+  // full-text snippet only shows in the view whose query produced it.
+  let renderingQuery = "";
 
   // ---- localStorage helpers ------------------------------------------------
   function loadKinds() {
@@ -661,7 +675,30 @@
     if (!q) return true;
     const hay = [s.title, projBase(s.cwd), s.cwd, (s.tags || []).join(" "), s.category, s.lastMessage]
       .join(" ").toLowerCase();
-    return q.split(/\s+/).every(term => hay.includes(term));
+    if (q.split(/\s+/).every(term => hay.includes(term))) return true;
+    // Fall back to the server-side full-text search over full conversation text.
+    return state.content.query === q && state.content.matches.has(s.id);
+  }
+
+  // ---- full-text search over conversation content --------------------------
+  let searchTimer = null;
+  // scheduleContentSearch debounces a server-side search of full conversation
+  // text. Queries shorter than 2 chars clear any prior results.
+  function scheduleContentSearch(query) {
+    clearTimeout(searchTimer);
+    if (query.trim().length < 2) {
+      state.content = { query: "", matches: new Map() };
+      return;
+    }
+    searchTimer = setTimeout(() => runContentSearch(query.trim()), 280);
+  }
+  async function runContentSearch(query) {
+    try {
+      const res = await fetch("/api/search?q=" + encodeURIComponent(query));
+      const data = await res.json();
+      state.content = { query: query.toLowerCase(), matches: new Map(Object.entries(data.matches || {})) };
+      renderAll();
+    } catch (e) { /* leave prior results in place on a failed search */ }
   }
 
   // ---- Main (pinned) view filtering ----------------------------------------
@@ -747,7 +784,21 @@
     if (s.kind && s.kind !== "main") head.append(el("span", { class: "kindbadge" }, s.kind));
     const out = el("div", null, head);
     if (s.lastMessage && s.lastMessage.trim()) out.append(previewBlock(s));
+    const hit = searchSnippet(s);
+    if (hit) out.append(hit);
     return out;
+  }
+
+  // searchSnippet shows the full-text match excerpt, but only in the view whose
+  // search box produced the current results.
+  function searchSnippet(s) {
+    const q = renderingQuery.trim().toLowerCase();
+    if (!q || state.content.query !== q) return null;
+    const snip = state.content.matches.get(s.id);
+    if (!snip) return null;
+    return el("div", { class: "search-hit" },
+      el("span", { class: "shicon" }, "🔍"),
+      el("span", { class: "shtext", title: snip }, snip));
   }
 
   function previewBlock(s) {
@@ -1065,6 +1116,7 @@
 
   function renderMain() {
     if (state.popoverOpen) { renderCounts(); renderMainActionBar(); return; }
+    renderingQuery = state.filter;
     const main = document.getElementById("main");
     const anyPinned = pinnedSessions().length > 0;
     main.replaceChildren();
@@ -1159,6 +1211,7 @@
 
   function renderBrowse() {
     if (state.popoverOpen) { renderBrowseActionBar(); return; }
+    renderingQuery = state.browseFilter;
     const body = document.getElementById("browseBody");
     const sessions = visibleBrowseSessions();
     body.replaceChildren();
@@ -1456,7 +1509,7 @@
     renderThemeBtn(currentTheme());
     document.getElementById("themeBtn").addEventListener("click", cycleTheme);
     document.getElementById("search").addEventListener("input", (e) => {
-      state.filter = e.target.value; renderMain();
+      state.filter = e.target.value; scheduleContentSearch(e.target.value); renderMain();
     });
     document.getElementById("showArchived").addEventListener("change", (e) => {
       state.showArchived = e.target.checked; pruneSelection(); renderMain();
@@ -1501,7 +1554,7 @@
       if (e.key === "Escape" && state.browseOpen && !state.popoverOpen) closeBrowse();
     });
     document.getElementById("browseSearch").addEventListener("input", (e) => {
-      state.browseFilter = e.target.value; renderBrowse();
+      state.browseFilter = e.target.value; scheduleContentSearch(e.target.value); renderBrowse();
     });
     document.getElementById("browseStatusFilter").addEventListener("change", (e) => {
       state.browseStatusFilter = e.target.value; renderBrowse();

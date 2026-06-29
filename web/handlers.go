@@ -30,6 +30,17 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, sessions)
 }
 
+// handleSearch runs a full-text search over every transcript's conversation and
+// returns a map of session id to a snippet around the first match.
+func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
+	matches, err := core.SearchTranscripts(r.URL.Query().Get("q"))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]map[string]string{"matches": matches})
+}
+
 // optionsResponse is the body of GET /api/options: the universe of category
 // and tag options the user has created or used.
 type optionsResponse struct {

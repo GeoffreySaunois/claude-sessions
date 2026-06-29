@@ -34,6 +34,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /", s.handleIndex)
 	s.mux.HandleFunc("GET /api/sessions", s.handleSessions)
+	s.mux.HandleFunc("GET /api/search", s.handleSearch)
 	s.mux.HandleFunc("GET /api/options", s.handleGetOptions)
 	s.mux.HandleFunc("POST /api/options", s.handleAddOption)
 	s.mux.HandleFunc("POST /api/meta", s.handleMeta)
