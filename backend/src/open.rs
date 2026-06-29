@@ -135,7 +135,10 @@ mod tests {
         let sessions = vec![session("id1", "/a b"), session("id2", "/c")];
         let script = build_ghostty_script(&sessions, &OpenConfig::default());
         assert!(!script.contains("keystroke \"t\""));
-        assert_eq!(script.matches("keystroke \"d\" using command down").count(), 2);
+        assert_eq!(
+            script.matches("keystroke \"d\" using command down").count(),
+            2
+        );
         assert!(script.contains(r"cd '/a b' && claude --resume id1"));
         assert!(script.contains("delay 0.45"));
     }
