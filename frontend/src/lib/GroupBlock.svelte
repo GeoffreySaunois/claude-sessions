@@ -21,8 +21,8 @@
         aria-label={collapsed ? "Expand group" : "Collapse group"}
         onclick={() => store.toggleCollapsed(name)}>▾</button
       >
-      <span class="group-name">{name}</span>
-      <span class="group-count">{sessions.length}</span>
+      <span class="group-name mono">{name}</span>
+      <span class="group-count tnum">{sessions.length}</span>
       <label class="group-selall" title="Select every session in this group">
         <input
           type="checkbox"
@@ -36,27 +36,10 @@
   {/if}
 
   {#if !(name && collapsed)}
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th class="col-pick"></th>
-            <th class="col-status">Status</th>
-            <th>Project</th>
-            <th>Title</th>
-            <th class="col-when">Active</th>
-            <th>Branch</th>
-            <th>Category</th>
-            <th>Tags</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each sessions as s (s.id)}
-            <MainRow session={s} />
-          {/each}
-        </tbody>
-      </table>
+    <div class="rows">
+      {#each sessions as s (s.id)}
+        <MainRow session={s} />
+      {/each}
     </div>
   {/if}
 </div>

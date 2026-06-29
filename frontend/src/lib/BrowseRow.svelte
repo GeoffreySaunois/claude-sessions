@@ -1,6 +1,6 @@
 <script lang="ts">
   import { store } from "./store.svelte";
-  import { projBase, relTime } from "./derive";
+  import { projBase, relTime, tildePath } from "./derive";
   import StatusBadge from "./StatusBadge.svelte";
   import TitleCell from "./TitleCell.svelte";
   import PinControl from "./PinControl.svelte";
@@ -8,9 +8,23 @@
 
   let { session }: { session: Session } = $props();
   const selected = $derived(store.browseSelected.has(session.id));
+  const focused = $derived(store.focusedSession?.id === session.id);
+
+  let rowEl = $state<HTMLTableRowElement>();
+  $effect(() => {
+    if (focused) rowEl?.scrollIntoView({ block: "nearest" });
+  });
 </script>
 
-<tr class:sel={selected}>
+<tr
+  bind:this={rowEl}
+  class:sel={selected}
+  class:kfocus={focused}
+  oncontextmenu={(e) => {
+    e.preventDefault();
+    store.openContextMenu(session, "browse", e.clientX, e.clientY);
+  }}
+>
   <td class="col-pick">
     <input
       type="checkbox"
@@ -19,12 +33,12 @@
         store.toggleBrowseSelect(session.id, e.currentTarget.checked)}
     />
   </td>
-  <td class="col-status"><StatusBadge status={session.status} /></td>
+  <td class="col-status"><StatusBadge status={session.status} variant="badge" /></td>
   <td>
     <div class="proj">{projBase(session.cwd)}</div>
-    <div class="cwd" title={session.cwd}>{session.cwd || ""}</div>
+    <div class="cwd" title={session.cwd}>{tildePath(session.cwd)}</div>
   </td>
-  <td><TitleCell {session} renderingQuery={store.browseFilter} /></td>
+  <td><TitleCell {session} renderingQuery={store.browseFilter} view="browse" /></td>
   <td class="col-when"
     ><span class="when" title={session.lastActive}>{relTime(session.lastActive)}</span
     ></td

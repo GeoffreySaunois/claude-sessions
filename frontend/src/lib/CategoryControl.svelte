@@ -2,6 +2,7 @@
   import { store } from "./store.svelte";
   import Popover from "./Popover.svelte";
   import { onActivateKey } from "./clickable";
+  import { tokenVar } from "./derive";
   import type { Session } from "./types";
 
   let { session }: { session: Session } = $props();
@@ -13,6 +14,7 @@
 <span
   bind:this={anchor}
   class={session.category ? "cat-pill" : "selctl"}
+  style={session.category ? `--tok: ${tokenVar(session.category)}` : undefined}
   role="button"
   tabindex="0"
   onkeydown={onActivateKey}

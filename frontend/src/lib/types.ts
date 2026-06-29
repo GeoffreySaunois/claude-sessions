@@ -47,4 +47,7 @@ export interface MetaPatch {
   category?: string;
   tags?: string[];
   archived?: boolean;
+  // Rename override: non-empty sets it, empty string clears it back to the
+  // derived title, absent leaves it untouched.
+  title?: string;
 }

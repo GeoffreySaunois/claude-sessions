@@ -41,16 +41,19 @@
     </div>
 
     <div class="modal-controls">
-      <input
-        type="text"
-        class="searchbox"
-        placeholder="Search every session — incl. full conversation text…"
-        autocomplete="off"
-        spellcheck="false"
-        bind:this={searchEl}
-        bind:value={store.browseFilter}
-        oninput={() => store.scheduleContentSearch(store.browseFilter)}
-      />
+      <span class="search-wrap modal-search">
+        <span class="glyph">⌕</span>
+        <input
+          type="text"
+          class="searchbox"
+          placeholder="Search every session — incl. full conversation text…"
+          autocomplete="off"
+          spellcheck="false"
+          bind:this={searchEl}
+          bind:value={store.browseFilter}
+          oninput={() => store.scheduleContentSearch(store.browseFilter)}
+        />
+      </span>
       <span class="ctl"
         ><span class="lbl">Status</span>
         <select class="filter" bind:value={store.browseStatusFilter}>
@@ -61,7 +64,7 @@
         </select></span
       >
       <span class="ctl"
-        ><span class="lbl">Project</span>
+        ><span class="lbl">Folder</span>
         <select class="filter" bind:value={store.browseProjectFilter}>
           <option value="">all</option>
           {#each store.distinctProjects as p (p)}
@@ -86,6 +89,28 @@
       >
     </div>
 
+    <div class="selbar-wrap modal-selbar" class:show={n > 0}>
+      <div class="selbar" role="region" aria-label="Selection actions">
+        <span class="n"><span class="badge-n tnum">{n}</span> selected</span>
+        <button
+          class="iconbtn"
+          onclick={() => void store.openIds([...store.browseSelected])}
+          ><span class="g">↗</span> Open</button
+        >
+        <button class="iconbtn" onclick={() => void store.runBrowseBulk("pin")}
+          ><span class="g">★</span> Pin</button
+        >
+        <button
+          class="iconbtn"
+          onclick={() => store.requestUnpin([...store.browseSelected], "browse")}
+          ><span class="g">☆</span> Unpin</button
+        >
+        <button class="linkbtn" onclick={() => store.clearBrowseSelection()}
+          >Clear</button
+        >
+      </div>
+    </div>
+
     <div class="modal-body">
       {#if !sessions.length}
         <div class="empty">No sessions match these filters.</div>
@@ -96,7 +121,7 @@
               <tr>
                 <th class="col-pick"></th>
                 <th class="col-status">Status</th>
-                <th>Project</th>
+                <th>Folder</th>
                 <th>Title</th>
                 <th class="col-when">Active</th>
                 <th></th>
@@ -112,22 +137,4 @@
       {/if}
     </div>
   </div>
-</div>
-
-<div class="actionbar" class:show={n > 0 && store.browseOpen}>
-  <span class="n"><b>{n}</b> selected</span>
-  <button
-    class="btn"
-    onclick={() => void store.openIds([...store.browseSelected])}
-    >Open selected ({n})</button
-  >
-  <button class="iconbtn" onclick={() => void store.runBrowseBulk("pin")}
-    >Pin</button
-  >
-  <button class="iconbtn" onclick={() => void store.runBrowseBulk("unpin")}
-    >Unpin</button
-  >
-  <button class="linkbtn" onclick={() => store.clearBrowseSelection()}
-    >clear</button
-  >
 </div>

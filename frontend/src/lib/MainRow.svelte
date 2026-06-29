@@ -1,59 +1,79 @@
 <script lang="ts">
   import { store } from "./store.svelte";
-  import { projBase, relTime } from "./derive";
+  import { relTime, tildePath } from "./derive";
   import StatusBadge from "./StatusBadge.svelte";
   import TitleCell from "./TitleCell.svelte";
   import CategoryControl from "./CategoryControl.svelte";
   import TagsControl from "./TagsControl.svelte";
-  import type { Session } from "./types";
+  import type { Session, SessionStatus } from "./types";
 
   let { session }: { session: Session } = $props();
 
   const selected = $derived(store.selected.has(session.id));
+  const focused = $derived(store.focusedSession?.id === session.id);
+  const live = $derived(session.status === "busy");
+
+  let rowEl = $state<HTMLElement>();
+  // Scroll the keyboard-focused row into view when focus lands on it.
+  $effect(() => {
+    if (focused) rowEl?.scrollIntoView({ block: "nearest" });
+  });
+
+  // The left-rail status glyph: filled dot when busy, hollow circle when
+  // waiting, a faint mid-dot when inactive.
+  const GLYPH: Record<SessionStatus, string> = {
+    busy: "●",
+    waiting: "○",
+    inactive: "·",
+  };
 </script>
 
-<tr class:sel={selected} class:archived={session.archived}>
-  <td class="col-pick">
+<article
+  bind:this={rowEl}
+  class="row"
+  class:selected
+  class:kfocus={focused}
+  class:archived={session.archived}
+  oncontextmenu={(e) => {
+    e.preventDefault();
+    store.openContextMenu(session, "main", e.clientX, e.clientY);
+  }}
+>
+  <label class="row-pick">
     <input
       type="checkbox"
       checked={selected}
+      aria-label="Select session"
       onchange={(e) =>
         store.toggleMainSelect(session.id, e.currentTarget.checked)}
     />
-  </td>
-  <td class="col-status"><StatusBadge status={session.status} /></td>
-  <td>
-    <div class="proj">{projBase(session.cwd)}</div>
-    <div class="cwd" title={session.cwd}>{session.cwd || ""}</div>
-  </td>
-  <td><TitleCell {session} renderingQuery={store.filter} /></td>
-  <td class="col-when"
-    ><span class="when" title={session.lastActive}>{relTime(session.lastActive)}</span
-    ></td
+  </label>
+
+  <span class="status-glyph {session.status}" aria-hidden="true"
+    >{GLYPH[session.status]}</span
   >
-  <td>
-    {#if session.gitBranch}
-      <span class="branch">{session.gitBranch}</span>
-    {:else}
-      <span class="muted"></span>
-    {/if}
-  </td>
-  <td class="cat-cell"><CategoryControl {session} /></td>
-  <td class="tags-cell"><TagsControl {session} /></td>
-  <td>
-    <div class="tags">
-      <button
-        class="iconbtn"
-        class:on={session.archived}
-        title={session.archived ? "Unarchive" : "Archive (set aside, keep pinned)"}
-        onclick={() => void store.commitMeta(session, { archived: !session.archived })}
-        >{session.archived ? "archived" : "archive"}</button
-      >
-      <button
-        class="iconbtn"
-        title="Remove from dashboard"
-        onclick={() => void store.setPinned(session, false)}>unpin</button
-      >
+
+  <div class="row-body">
+    <TitleCell {session} renderingQuery={store.filter} view="main" editable>
+      {#snippet trailing()}
+        <StatusBadge status={session.status} />
+      {/snippet}
+    </TitleCell>
+    <div class="meta">
+      <span class="cwd" title={session.cwd}>{tildePath(session.cwd)}</span>
+      {#if session.gitBranch}
+        <span class="sep">│</span>
+        <span class="branch">{session.gitBranch}</span>
+      {/if}
     </div>
-  </td>
-</tr>
+  </div>
+
+  <div class="row-chips">
+    <CategoryControl {session} />
+    <TagsControl {session} />
+  </div>
+
+  <div class="row-when" class:live title={session.lastActive}>
+    {relTime(session.lastActive)}
+  </div>
+</article>

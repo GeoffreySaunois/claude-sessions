@@ -1,10 +1,15 @@
 <script lang="ts">
   import { store, type GroupMode } from "./lib/store.svelte";
-  import { theme } from "./lib/theme.svelte";
+  import { theme, type ThemeMode } from "./lib/theme.svelte";
   import GroupBlock from "./lib/GroupBlock.svelte";
   import MainActionBar from "./lib/MainActionBar.svelte";
   import BrowseModal from "./lib/BrowseModal.svelte";
+  import StatusBar from "./lib/StatusBar.svelte";
+  import ContextMenu from "./lib/ContextMenu.svelte";
+  import ShortcutsHelp from "./lib/ShortcutsHelp.svelte";
+  import UnpinConfirm from "./lib/UnpinConfirm.svelte";
   import Toast from "./lib/Toast.svelte";
+  import { handleKeydown } from "./lib/keyboard";
 
   const counts = $derived(store.counts);
   const anyPinned = $derived(store.pinned.length > 0);
@@ -12,56 +17,78 @@
   const hasVisible = $derived(store.visibleMain.length > 0);
 
   const GROUP_MODES: { id: GroupMode; label: string }[] = [
-    { id: "project", label: "Group: Project" },
+    { id: "project", label: "Folder" },
     { id: "category", label: "Category" },
     { id: "none", label: "None" },
   ];
 
-  function onKeydown(e: KeyboardEvent) {
-    if (e.key === "Escape" && store.browseOpen && !store.popoverOpen) {
-      store.closeBrowse();
-    }
-  }
+  const THEME_MODES: { id: ThemeMode; label: string }[] = [
+    { id: "system", label: "sys" },
+    { id: "light", label: "light" },
+    { id: "dark", label: "dark" },
+  ];
 
   $effect(() => store.startRefreshLoop());
+
+  // Keep the keyboard focus index inside the active list as it changes (filter,
+  // group, modal open/close, refresh). Touching the reactive deps re-runs this.
+  $effect(() => {
+    void store.activeList.length;
+    void store.browseOpen;
+    store.clampFocus();
+  });
 </script>
 
-<svelte:window onkeydown={onKeydown} />
+<svelte:window onkeydown={handleKeydown} />
 
 <header>
   <div class="titlebar">
-    <h1>Claude Sessions</h1>
-    <span class="sub">{store.updatedAt ? "updated " + store.updatedAt : "—"}</span>
+    <div class="brand">
+      <span class="prompt">❯</span>
+      <h1>claude-sessions</h1>
+      <span class="cursor" aria-hidden="true"></span>
+    </div>
+
     <div class="counts">
       {#each [["busy", counts.busy], ["waiting", counts.waiting], ["inactive", counts.inactive]] as [kind, n] (kind)}
-        <span class="count"
-          ><span class="dot {kind}"></span><b>{n}</b>{kind}</span
-        >
+        <span class="count"><span class="dot {kind}"></span><b>{n}</b> {kind}</span>
       {/each}
     </div>
-    <button class="browseBtn" type="button" onclick={() => store.openBrowse()}
-      >Browse all</button
-    >
-    <button
-      id="themeBtn"
-      type="button"
-      title={"Theme: " + theme.meta.label + " (click to cycle)"}
-      onclick={() => theme.cycle()}
-    >
-      <span class="ic">{theme.meta.ic}</span><span>{theme.meta.label}</span>
-    </button>
+
+    <div class="header-right">
+      <span class="pinned-badge"><span class="pin">📌</span> {store.pinned.length} pinned</span>
+      <div id="themeBtn" role="group" aria-label="Theme">
+        {#each THEME_MODES as t (t.id)}
+          <button
+            class="seg-opt"
+            class:active={theme.mode === t.id}
+            type="button"
+            title={"Theme: " + t.label}
+            onclick={() => theme.apply(t.id)}>{t.label}</button
+          >
+        {/each}
+      </div>
+      <button class="browseBtn" type="button" onclick={() => store.openBrowse()}
+        >Browse all <span style="opacity:.7">→</span></button
+      >
+    </div>
   </div>
 
   <div class="controls">
-    <input
-      type="text"
-      class="searchbox"
-      placeholder="Search pinned — title, project, tags, message text…"
-      autocomplete="off"
-      spellcheck="false"
-      bind:value={store.filter}
-      oninput={() => store.scheduleContentSearch(store.filter)}
-    />
+    <div class="search-wrap">
+      <span class="glyph">⌕</span>
+      <input
+        type="text"
+        class="searchbox"
+        placeholder="Search pinned — title, folder, tags, message text…"
+        autocomplete="off"
+        spellcheck="false"
+        bind:value={store.filter}
+        oninput={() => store.scheduleContentSearch(store.filter)}
+      />
+      <span class="kbd">⌘K</span>
+    </div>
+
     <div class="seg">
       {#each GROUP_MODES as g (g.id)}
         <button
@@ -70,8 +97,9 @@
         >
       {/each}
     </div>
+
     <span class="ctl"
-      ><span class="lbl">Status</span>
+      ><span class="lbl">status</span>
       <select class="filter" bind:value={store.statusFilter}>
         <option value="">all</option>
         <option value="busy">busy</option>
@@ -80,7 +108,7 @@
       </select></span
     >
     <span class="ctl"
-      ><span class="lbl">Category</span>
+      ><span class="lbl">category</span>
       <select class="filter" bind:value={store.categoryFilter}>
         <option value="">all</option>
         {#each store.options.categories as c (c)}
@@ -89,7 +117,7 @@
       </select></span
     >
     <span class="ctl"
-      ><span class="lbl">Tag</span>
+      ><span class="lbl">tag</span>
       <select class="filter" bind:value={store.tagFilter}>
         <option value="">all</option>
         {#each store.options.tags as t (t)}
@@ -100,10 +128,12 @@
     <label class="toggle"
       ><input type="checkbox" bind:checked={store.showArchived} /> Show archived</label
     >
-    <button class="linkbtn" onclick={() => store.expandAll()}>expand all</button>
+    <button class="linkbtn" onclick={() => store.expandAll()}>⇕ expand all</button>
     <button class="linkbtn" onclick={() => store.collapseAll()}>collapse all</button>
   </div>
 </header>
+
+<MainActionBar />
 
 <main>
   {#if !anyPinned}
@@ -127,6 +157,9 @@
   {/if}
 </main>
 
-<MainActionBar />
 <BrowseModal />
+<ContextMenu />
+<ShortcutsHelp />
+<UnpinConfirm />
+<StatusBar />
 <Toast />

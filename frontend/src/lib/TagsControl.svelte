@@ -2,6 +2,7 @@
   import { store } from "./store.svelte";
   import Popover from "./Popover.svelte";
   import { onActivateKey } from "./clickable";
+  import { tokenVar } from "./derive";
   import type { Session } from "./types";
 
   let { session }: { session: Session } = $props();
@@ -12,7 +13,7 @@
 
 <div class="tags">
   {#each session.tags || [] as t (t)}
-    <span class="tag"
+    <span class="tag" style={`--tok: ${tokenVar(t)}`}
       >{t}<span
         class="x"
         title="remove"

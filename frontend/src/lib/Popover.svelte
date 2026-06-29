@@ -46,23 +46,29 @@
   const showCreate = $derived(typed !== "" && !exact);
   const showEmpty = $derived(filtered.length === 0 && !showCreate);
 
+  // Positioned with `position: fixed`, so coordinates are viewport-relative
+  // (no scroll offset). This keeps the popover anchored to its trigger even when
+  // it lives inside a `position: relative` row or the modal overlay.
   function position() {
     if (!popEl) return;
     const rect = anchor.getBoundingClientRect();
-    const top = window.scrollY + rect.bottom + 4;
-    let left = window.scrollX + rect.left;
+    const top = rect.bottom + 4;
+    const left = rect.left;
     style = `top:${top}px;left:${left}px`;
-    // Clamp within viewport horizontally after the box has a width.
+    // Clamp within the viewport (both axes) once the box has a measured size.
     requestAnimationFrame(() => {
       if (!popEl) return;
       const pr = popEl.getBoundingClientRect();
+      let clampedLeft = left;
       if (pr.right > window.innerWidth - 8) {
-        const clamped = Math.max(
-          8,
-          window.scrollX + window.innerWidth - pr.width - 8,
-        );
-        style = `top:${top}px;left:${clamped}px`;
+        clampedLeft = Math.max(8, window.innerWidth - pr.width - 8);
       }
+      let clampedTop = top;
+      if (pr.bottom > window.innerHeight - 8) {
+        // Flip above the anchor when it would overflow the bottom edge.
+        clampedTop = Math.max(8, rect.top - pr.height - 4);
+      }
+      style = `top:${clampedTop}px;left:${clampedLeft}px`;
     });
   }
 

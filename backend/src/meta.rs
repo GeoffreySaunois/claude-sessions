@@ -26,7 +26,9 @@ where
 
 /// SessionMeta is the user-maintained organization data for one session.
 /// `pinned` marks a session as adopted into the curated dashboard;
-/// category/tags/archived only carry meaning for pinned sessions.
+/// category/tags/archived only carry meaning for pinned sessions. `title` is an
+/// optional rename that overrides the transcript-derived title; it is
+/// independent of pinning.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct SessionMeta {
     #[serde(default, deserialize_with = "null_as_default")]
@@ -37,6 +39,8 @@ pub struct SessionMeta {
     pub tags: Vec<String>,
     #[serde(default, deserialize_with = "null_as_default")]
     pub archived: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
 }
 
 /// MetaDoc is the on-disk shape of the sidecar: per-session metadata plus the
@@ -161,13 +165,17 @@ impl MetaStore {
         self.update_many(ids, pin_fn(pinned))
     }
 
-    /// apply overlays stored metadata onto a session.
+    /// apply overlays stored metadata onto a session. A non-empty title override
+    /// replaces the transcript-derived title; the derived title stays the fallback.
     pub fn apply(&self, s: &mut Session) {
         let meta = self.get(&s.id);
         s.pinned = meta.pinned;
         s.category = meta.category;
         s.tags = meta.tags;
         s.archived = meta.archived;
+        if let Some(title) = meta.title.filter(|t| !t.is_empty()) {
+            s.title = title;
+        }
     }
 
     /// seed_options_from_usage folds every category/tag currently assigned to a
@@ -237,6 +245,9 @@ fn insert_sorted(xs: &mut Vec<String>, name: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::session::{Kind, Status};
+    use std::sync::Mutex;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     // insert_sorted guards dedup, ordering, and the empty-name no-op the option
     // universe relies on.
@@ -248,5 +259,99 @@ mod tests {
         insert_sorted(&mut xs, "work"); // duplicate ignored
         insert_sorted(&mut xs, ""); // empty ignored
         assert_eq!(xs, vec!["admin".to_string(), "work".to_string()]);
+    }
+
+    // CLAUDE_CONFIG_DIR is process-global, so env-touching tests serialize on
+    // this lock and always point at a unique temp dir — never the real ~/.claude.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    /// with_temp_config runs `f` with CLAUDE_CONFIG_DIR pointed at a fresh temp
+    /// dir, restoring the prior value afterwards. The lock keeps concurrent tests
+    /// from racing on the shared env var.
+    fn with_temp_config(f: impl FnOnce(&std::path::Path)) {
+        let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("ccs-meta-test-{nanos}"));
+        fs::create_dir_all(&dir).unwrap();
+        let prev = std::env::var_os("CLAUDE_CONFIG_DIR");
+        std::env::set_var("CLAUDE_CONFIG_DIR", &dir);
+        f(&dir);
+        match prev {
+            Some(v) => std::env::set_var("CLAUDE_CONFIG_DIR", v),
+            None => std::env::remove_var("CLAUDE_CONFIG_DIR"),
+        }
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    fn session_with_derived_title(id: &str, derived: &str) -> Session {
+        Session {
+            id: id.to_string(),
+            path: String::new(),
+            project_dir: String::new(),
+            cwd: String::new(),
+            git_branch: String::new(),
+            title: derived.to_string(),
+            last_message: String::new(),
+            kind: Kind::Main,
+            status: Status::Inactive,
+            pid: 0,
+            last_active: String::new(),
+            last_active_nanos: 0,
+            size_bytes: 0,
+            version: String::new(),
+            pinned: false,
+            category: String::new(),
+            tags: Vec::new(),
+            archived: false,
+        }
+    }
+
+    // The title override drives the whole rename feature: set → displayed title
+    // is the override; clear → reverts to derived; an archived-only patch and an
+    // unpin must both leave the override intact (rename is independent of both).
+    #[test]
+    fn title_override_set_clear_and_survives_archive_and_unpin() {
+        with_temp_config(|_dir| {
+            let id = "sess-1";
+
+            // No override: apply leaves the derived title.
+            let mut store = MetaStore::load().unwrap();
+            store.set_pinned(id, true).unwrap();
+            let mut s = session_with_derived_title(id, "derived title");
+            MetaStore::load().unwrap().apply(&mut s);
+            assert_eq!(s.title, "derived title");
+
+            // Set the override: apply now shows it.
+            store
+                .update(id, |m| m.title = Some("custom name".into()))
+                .unwrap();
+            let mut s = session_with_derived_title(id, "derived title");
+            MetaStore::load().unwrap().apply(&mut s);
+            assert_eq!(s.title, "custom name");
+
+            // An archived-only mutation must not disturb the override.
+            store.update(id, |m| m.archived = true).unwrap();
+            let mut s = session_with_derived_title(id, "derived title");
+            MetaStore::load().unwrap().apply(&mut s);
+            assert_eq!(s.title, "custom name");
+            assert!(s.archived);
+
+            // Unpin clears category/tags/archived but preserves the rename.
+            store.set_pinned(id, false).unwrap();
+            let mut s = session_with_derived_title(id, "derived title");
+            MetaStore::load().unwrap().apply(&mut s);
+            assert_eq!(s.title, "custom name");
+            assert!(!s.pinned);
+            assert!(!s.archived);
+
+            // Clearing the override (empty → None) reverts to the derived title.
+            store.update(id, |m| m.title = None).unwrap();
+            let mut s = session_with_derived_title(id, "derived title");
+            MetaStore::load().unwrap().apply(&mut s);
+            assert_eq!(s.title, "derived title");
+        });
     }
 }

@@ -1,9 +1,55 @@
 import type { Session } from "./types";
 
+// A curated ~8-color token palette. Each entry names a CSS variable holding a
+// hue that has light- and dark-theme values defined in app.css, so a chip reads
+// well on both themes. The order is fixed: changing it would reshuffle which
+// name maps to which color.
+export const TOKEN_PALETTE = [
+  "blue",
+  "green",
+  "violet",
+  "amber",
+  "cyan",
+  "rose",
+  "teal",
+  "slate",
+] as const;
+
+export type Token = (typeof TOKEN_PALETTE)[number];
+
+// fnv1a is a tiny deterministic string hash. We only need a stable, well-mixed
+// integer to index the palette — not cryptographic strength.
+function fnv1a(s: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
+
+// tokenFor maps a category/tag name deterministically onto a palette token, so
+// the same name is always the same color across sessions and reloads.
+export function tokenFor(name: string): Token {
+  return TOKEN_PALETTE[fnv1a(name) % TOKEN_PALETTE.length]!;
+}
+
+// tokenVar is the CSS variable a chip should use as its hue. Style rules then
+// derive the tinted background and border from it via color-mix.
+export function tokenVar(name: string): string {
+  return `var(--tok-${tokenFor(name)})`;
+}
+
 export function projBase(cwd: string): string {
   if (!cwd) return "(no cwd)";
   const parts = cwd.split("/").filter(Boolean);
   return parts.length ? parts[parts.length - 1]! : cwd;
+}
+
+/** Abbreviate a home-directory path for display: /Users/foo/x -> ~/x */
+export function tildePath(cwd: string): string {
+  if (!cwd) return "";
+  return cwd.replace(/^\/(?:Users|home)\/[^/]+\//, "~/");
 }
 
 export function relTime(iso: string): string {

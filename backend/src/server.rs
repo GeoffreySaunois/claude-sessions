@@ -143,6 +143,10 @@ struct MetaRequest {
     tags: Option<Vec<String>>,
     #[serde(default)]
     archived: Option<bool>,
+    /// Rename override: present+non-empty sets it, present+empty clears it back
+    /// to the derived title, absent leaves it untouched.
+    #[serde(default)]
+    title: Option<String>,
 }
 
 async fn handle_meta(
@@ -178,6 +182,14 @@ fn apply_meta_patch(req: &MetaRequest, m: &mut SessionMeta) {
     }
     if let Some(archived) = req.archived {
         m.archived = archived;
+    }
+    if let Some(title) = &req.title {
+        // Present+empty clears the override; present+non-empty sets it.
+        m.title = if title.is_empty() {
+            None
+        } else {
+            Some(title.clone())
+        };
     }
 }
 
@@ -370,6 +382,7 @@ mod tests {
             tags: vec!["x".into(), "y".into()],
             archived: false,
             pinned: true,
+            title: Some("renamed".into()),
         };
         apply_meta_patch(
             &MetaRequest {
@@ -377,12 +390,15 @@ mod tests {
                 category: None,
                 tags: None,
                 archived: Some(true),
+                title: None,
             },
             &mut m,
         );
         assert!(m.archived);
         assert_eq!(m.category, "work");
         assert_eq!(m.tags.len(), 2);
+        // An archived-only patch must leave the title override intact.
+        assert_eq!(m.title.as_deref(), Some("renamed"));
 
         // Clearing a category sends an empty string (present), not absent.
         apply_meta_patch(
@@ -391,10 +407,56 @@ mod tests {
                 category: Some(String::new()),
                 tags: None,
                 archived: None,
+                title: None,
             },
             &mut m,
         );
         assert_eq!(m.category, "");
         assert_eq!(m.tags.len(), 2);
+    }
+
+    // A present+empty title clears the override (reverts to derived); a
+    // present+non-empty title sets it; absent leaves it untouched.
+    #[test]
+    fn meta_patch_title_set_clear_and_untouched() {
+        let mut m = SessionMeta::default();
+
+        apply_meta_patch(
+            &MetaRequest {
+                id: "s".into(),
+                category: None,
+                tags: None,
+                archived: None,
+                title: Some("My rename".into()),
+            },
+            &mut m,
+        );
+        assert_eq!(m.title.as_deref(), Some("My rename"));
+
+        // Absent title leaves the override untouched.
+        apply_meta_patch(
+            &MetaRequest {
+                id: "s".into(),
+                category: Some("work".into()),
+                tags: None,
+                archived: None,
+                title: None,
+            },
+            &mut m,
+        );
+        assert_eq!(m.title.as_deref(), Some("My rename"));
+
+        // Present+empty clears it back to the derived title.
+        apply_meta_patch(
+            &MetaRequest {
+                id: "s".into(),
+                category: None,
+                tags: None,
+                archived: None,
+                title: Some(String::new()),
+            },
+            &mut m,
+        );
+        assert_eq!(m.title, None);
     }
 }

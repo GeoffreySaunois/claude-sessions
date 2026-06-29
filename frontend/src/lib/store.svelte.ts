@@ -68,7 +68,9 @@ class SessionStore {
   categoryFilter = $state("");
   tagFilter = $state("");
   collapsed = $state<Set<string>>(loadStringSet(LS.collapsed, []));
-  expandedPreviews = $state<Set<string>>(new Set());
+  // Preview-expand state is per view so expanding a row in the Browse modal
+  // doesn't toggle the same session's row in the Main list behind it.
+  expandedMain = $state<Set<string>>(new Set());
 
   // ---- Browse-all modal ----
   browseOpen = $state(false);
@@ -77,6 +79,36 @@ class SessionStore {
   browseStatusFilter = $state("");
   browseProjectFilter = $state("");
   browseKinds = $state<Set<string>>(loadStringSet(LS.kinds, DEFAULT_KINDS));
+  expandedBrowse = $state<Set<string>>(new Set());
+
+  // ---- keyboard navigation ----
+  // The focused row index addresses the currently active flat list: the Browse
+  // list while the modal is open, otherwise the Main (pinned) list. -1 = none.
+  focusIndex = $state(-1);
+  shortcutsOpen = $state(false);
+
+  // ---- context menu ----
+  // At most one row context menu is open at a time. `surface` tells the menu
+  // which action set + selection to use; `x`/`y` are viewport coordinates.
+  contextMenu = $state<{
+    session: Session;
+    surface: "main" | "browse";
+    x: number;
+    y: number;
+  } | null>(null);
+
+  // A bump on this id asks the matching TitleCell (Main, editable) to open its
+  // inline rename editor — used by the context menu's Rename action.
+  renameRequest = $state<string | null>(null);
+
+  // Unpin is destructive (it clears category/tags/archived), so every trigger
+  // routes through a confirmation dialog. A pending request holds the target
+  // ids and the surface whose selection/refresh applies.
+  unpinConfirm = $state<{
+    ids: string[];
+    surface: "main" | "browse";
+    label: string;
+  } | null>(null);
 
   // ---- shared ----
   // While a popover is up we suppress the refresh re-render so the user is not
@@ -158,6 +190,89 @@ class SessionStore {
   get distinctProjects(): string[] {
     const set = new Set(this.sessions.map((s) => projBase(s.cwd)));
     return [...set].sort((a, b) => a.localeCompare(b));
+  }
+
+  // ---- keyboard navigation ----
+  // The flat, in-order list the focus index addresses. The Main list flattens
+  // the visible groups in render order (skipping collapsed groups, whose rows
+  // aren't on screen) so j/k walk exactly what's visible top-down.
+  get activeList(): Session[] {
+    if (this.browseOpen) return this.visibleBrowse;
+    return this.mainGroups
+      .filter(([name]) => !(name && this.collapsed.has(name)))
+      .flatMap(([, group]) => group);
+  }
+
+  get focusedSession(): Session | null {
+    const list = this.activeList;
+    if (this.focusIndex < 0 || this.focusIndex >= list.length) return null;
+    return list[this.focusIndex];
+  }
+
+  // Keep the focus index inside the active list as it grows, shrinks, or empties
+  // (filter / group / modal open-close). Called by an $effect in the shell.
+  clampFocus(): void {
+    const len = this.activeList.length;
+    if (len === 0) {
+      if (this.focusIndex !== -1) this.focusIndex = -1;
+      return;
+    }
+    if (this.focusIndex < 0) return;
+    if (this.focusIndex > len - 1) this.focusIndex = len - 1;
+  }
+
+  moveFocus(delta: number): void {
+    const len = this.activeList.length;
+    if (len === 0) {
+      this.focusIndex = -1;
+      return;
+    }
+    const start = this.focusIndex < 0 ? (delta > 0 ? -1 : len) : this.focusIndex;
+    this.focusIndex = Math.min(len - 1, Math.max(0, start + delta));
+  }
+
+  resetFocus(): void {
+    this.focusIndex = -1;
+  }
+
+  toggleFocusedSelect(): void {
+    const s = this.focusedSession;
+    if (!s) return;
+    if (this.browseOpen) {
+      this.toggleBrowseSelect(s.id, !this.browseSelected.has(s.id));
+    } else {
+      this.toggleMainSelect(s.id, !this.selected.has(s.id));
+    }
+  }
+
+  // Open the current multi-selection if any, else the focused row.
+  openActive(): void {
+    const sel = this.browseOpen ? this.browseSelected : this.selected;
+    if (sel.size) {
+      void this.openIds([...sel]);
+      return;
+    }
+    const s = this.focusedSession;
+    if (s) void this.openIds([s.id]);
+  }
+
+  // p: pin the focused row (safe, never unpins). Already-pinned rows are a no-op
+  // — unpin is destructive and only happens via the confirmation dialog.
+  pinFocused(): void {
+    const s = this.focusedSession;
+    if (!s || s.pinned) return;
+    void this.setPinned(s, true);
+  }
+
+  // Backspace/Delete: request an unpin of the focused row (or the selection if
+  // the focused row is part of it) — routes through the confirmation dialog.
+  unpinFocused(): void {
+    const s = this.focusedSession;
+    if (!s) return;
+    const surface = this.browseOpen ? "browse" : "main";
+    const sel = this.browseOpen ? this.browseSelected : this.selected;
+    const ids = sel.has(s.id) ? [...sel] : [s.id];
+    this.requestUnpin(ids, surface);
   }
 
   get counts(): { busy: number; waiting: number; inactive: number } {
@@ -259,11 +374,34 @@ class SessionStore {
     this.browseSelected = new Set();
   }
 
-  togglePreview(id: string): void {
-    const next = new Set(this.expandedPreviews);
+  // ---- context menu ----
+  openContextMenu(
+    session: Session,
+    surface: "main" | "browse",
+    x: number,
+    y: number,
+  ): void {
+    this.contextMenu = { session, surface, x, y };
+  }
+  closeContextMenu(): void {
+    this.contextMenu = null;
+  }
+  requestRename(id: string): void {
+    this.renameRequest = id;
+  }
+
+  // Preview expand is tracked per view ("main" / "browse") so the same session
+  // shown in both surfaces toggles independently.
+  isPreviewOpen(view: "main" | "browse", id: string): boolean {
+    return (view === "browse" ? this.expandedBrowse : this.expandedMain).has(id);
+  }
+  togglePreview(view: "main" | "browse", id: string): void {
+    const cur = view === "browse" ? this.expandedBrowse : this.expandedMain;
+    const next = new Set(cur);
     if (next.has(id)) next.delete(id);
     else next.add(id);
-    this.expandedPreviews = next;
+    if (view === "browse") this.expandedBrowse = next;
+    else this.expandedMain = next;
   }
 
   // ---- collapse ----
@@ -330,6 +468,42 @@ class SessionStore {
     }
   }
 
+  // ---- unpin confirmation (destructive: clears category/tags/archived) ----
+  // Title used in the dialog copy: single session → its title, else the count.
+  private unpinLabel(ids: string[]): string {
+    if (ids.length === 1) {
+      const s = this.sessions.find((x) => x.id === ids[0]);
+      const t = (s?.title || "").trim();
+      return t ? `"${t}"` : "this session";
+    }
+    return `${ids.length} sessions`;
+  }
+
+  requestUnpin(ids: string[], surface: "main" | "browse"): void {
+    const targets = ids.filter(Boolean);
+    if (!targets.length) return;
+    this.unpinConfirm = {
+      ids: targets,
+      surface,
+      label: this.unpinLabel(targets),
+    };
+  }
+  cancelUnpin(): void {
+    this.unpinConfirm = null;
+  }
+  async confirmUnpin(): Promise<void> {
+    const pending = this.unpinConfirm;
+    this.unpinConfirm = null;
+    if (!pending) return;
+    try {
+      const res = await postBulk({ ids: pending.ids, action: "unpin", value: "" });
+      this.notify(this.bulkToast("unpin", res.updated));
+      await this.refresh();
+    } catch (e) {
+      this.notify("Unpin failed: " + (e as Error).message, true);
+    }
+  }
+
   // ---- per-session meta (category / tags / archived) ----
   async commitMeta(
     s: Session,
@@ -347,6 +521,21 @@ class SessionStore {
       this.notify("Saved");
     } catch (e) {
       this.notify("Save failed: " + (e as Error).message, true);
+    }
+  }
+
+  // commitTitle sets (or clears, via "") the rename override. The optimistic
+  // update shows the new title immediately; an empty value clears the override
+  // server-side and the next refresh restores the transcript-derived title.
+  async commitTitle(s: Session, title: string): Promise<void> {
+    const trimmed = title.trim();
+    s.title = trimmed;
+    this.sessions = [...this.sessions];
+    try {
+      await postMeta({ id: s.id, title: trimmed });
+      this.notify(trimmed ? "Renamed" : "Rename cleared");
+    } catch (e) {
+      this.notify("Rename failed: " + (e as Error).message, true);
     }
   }
 
@@ -413,11 +602,15 @@ class SessionStore {
   }
 
   // ---- modal open/close ----
+  // Opening/closing the modal swaps which list the focus index addresses, so the
+  // focus resets to avoid pointing at a row from the other list.
   openBrowse(): void {
     this.browseOpen = true;
+    this.resetFocus();
   }
   closeBrowse(): void {
     this.browseOpen = false;
+    this.resetFocus();
   }
 }
 

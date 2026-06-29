@@ -10,26 +10,30 @@
   let catOpen = $state(false);
 </script>
 
-<div class="actionbar" class:show>
-  <span class="n"><b>{n}</b> selected</span>
-  <button class="btn" onclick={() => void store.openIds([...store.selected])}
-    >Open selected ({n})</button
-  >
-  <button class="iconbtn" onclick={() => void store.runMainBulk("unpin")}
-    >Remove from dashboard</button
+<div class="selbar-wrap" class:show>
+<div class="selbar" role="region" aria-label="Selection actions">
+  <span class="n"><span class="badge-n tnum">{n}</span> selected</span>
+  <button class="iconbtn" onclick={() => void store.openIds([...store.selected])}
+    ><span class="g">↗</span> Open</button
   >
   <button class="iconbtn" onclick={() => void store.runMainBulk("archive")}
-    >Archive</button
+    ><span class="g">⌗</span> Archive</button
   >
   <button class="iconbtn" onclick={() => void store.runMainBulk("unarchive")}
-    >Unarchive</button
+    ><span class="g">⊞</span> Unarchive</button
+  >
+  <button
+    class="iconbtn"
+    onclick={() => store.requestUnpin([...store.selected], "main")}
+    ><span class="g">⊘</span> Unpin</button
   >
   <button
     class="iconbtn"
     bind:this={catAnchor}
-    onclick={() => (catOpen = true)}>Move to category…</button
+    onclick={() => (catOpen = true)}><span class="g">⊕</span> Move to category…</button
   >
-  <button class="linkbtn" onclick={() => store.clearMainSelection()}>clear</button>
+  <button class="linkbtn" onclick={() => store.clearMainSelection()}>Clear</button>
+</div>
 </div>
 
 {#if catOpen && catAnchor}
