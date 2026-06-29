@@ -9,8 +9,11 @@ import (
 )
 
 // SessionMeta is the user-maintained organization data for one session. It
-// lives in a sidecar file and never touches Claude Code's own state.
+// lives in a sidecar file and never touches Claude Code's own state. Pinned
+// marks a session as adopted into the curated dashboard; category/tags/archived
+// only carry meaning for pinned sessions.
 type SessionMeta struct {
+	Pinned   bool     `json:"pinned"`
 	Category string   `json:"category"`
 	Tags     []string `json:"tags"`
 	Archived bool     `json:"archived"`
@@ -127,9 +130,32 @@ func (m *MetaStore) applyUpdate(id string, fn func(*SessionMeta)) {
 	}
 }
 
+// SetPinned pins a session, or unpins it. Unpinning removes it from the curated
+// dashboard, so its dashboard organization (category, tags, archived) is dropped.
+func (m *MetaStore) SetPinned(id string, pinned bool) error {
+	return m.Update(id, pinFn(pinned))
+}
+
+// SetPinnedMany applies SetPinned to several sessions in one persisted write.
+func (m *MetaStore) SetPinnedMany(ids []string, pinned bool) error {
+	return m.UpdateMany(ids, pinFn(pinned))
+}
+
+func pinFn(pinned bool) func(*SessionMeta) {
+	return func(meta *SessionMeta) {
+		meta.Pinned = pinned
+		if !pinned {
+			meta.Category = ""
+			meta.Tags = nil
+			meta.Archived = false
+		}
+	}
+}
+
 // apply overlays stored metadata onto a session.
 func (m *MetaStore) apply(s *Session) {
 	meta := m.Get(s.ID)
+	s.Pinned = meta.Pinned
 	s.Category = meta.Category
 	s.Tags = meta.Tags
 	s.Archived = meta.Archived

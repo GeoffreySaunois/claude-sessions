@@ -37,6 +37,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/options", s.handleGetOptions)
 	s.mux.HandleFunc("POST /api/options", s.handleAddOption)
 	s.mux.HandleFunc("POST /api/meta", s.handleMeta)
+	s.mux.HandleFunc("POST /api/pin", s.handlePin)
 	s.mux.HandleFunc("POST /api/bulk", s.handleBulk)
 	s.mux.HandleFunc("POST /api/open", s.handleOpen)
 }

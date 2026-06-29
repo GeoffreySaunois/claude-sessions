@@ -122,6 +122,14 @@
   .dot.waiting { background: var(--waiting); }
   .dot.inactive { background: var(--inactive); }
 
+  /* The header keeps the browse-all trigger to the right of the brand row. */
+  .browseBtn {
+    background: var(--accent); color: #07101f; border: none;
+    border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: var(--sans);
+  }
+  .browseBtn:hover { filter: brightness(1.05); }
+
   /* The filter bar wraps into tidy rows of labelled controls instead of one
      cramped line. */
   .controls {
@@ -142,7 +150,7 @@
   }
   select.filter { padding: 7px 9px; cursor: pointer; }
   input[type=text]:focus, input.cell:focus, select.filter:focus { border-color: var(--accent); }
-  #search { flex: 1; min-width: 200px; }
+  .searchbox { flex: 1; min-width: 200px; }
 
   .seg {
     display: inline-flex; background: var(--bg-2); border: 1px solid var(--line);
@@ -175,24 +183,37 @@
   .btn:disabled { background: var(--bg-3); color: var(--txt-faint); cursor: default; }
 
   main { padding: 16px 20px 80px; }
-  .group { margin-bottom: 22px; }
+  /* The curated Main view breathes: more room between groups than the dense
+     modal table, so pinned sessions read as the calm hero surface. */
+  .group { margin-bottom: 30px; }
+
+  /* Group header: a single baseline-aligned row. The caret is a real button
+     with a comfortable hit area; the checkbox and label sit on the same line. */
   .group-head {
-    display: flex; align-items: center; gap: 8px;
-    color: var(--txt-dim); font-size: 12px; font-weight: 600;
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 2px 7px; border-bottom: 1px solid var(--line-soft); margin-bottom: 10px;
+  }
+  .group-caret {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; padding: 0; margin: 0;
+    background: transparent; border: none; cursor: pointer; border-radius: 5px;
+    color: var(--txt-faint); font-size: 12px; line-height: 1;
+    transition: transform .12s, background .08s;
+  }
+  .group-caret:hover { background: var(--bg-2); color: var(--txt-dim); }
+  .group-head.collapsed .group-caret { transform: rotate(-90deg); }
+  .group-name {
+    font-size: 12px; font-weight: 600; color: var(--txt-dim);
     text-transform: uppercase; letter-spacing: .6px;
-    padding: 0 2px 7px; border-bottom: 1px solid var(--line-soft); margin-bottom: 8px;
-    cursor: pointer; user-select: none;
   }
-  .group-head .caret { font-size: 10px; color: var(--txt-faint); width: 12px; transition: transform .12s; }
-  .group-head.collapsed .caret { transform: rotate(-90deg); }
-  .group-head .n { color: var(--txt-faint); font-weight: 500; }
-  .group-head .ga {
-    margin-left: auto; display: inline-flex; gap: 5px; align-items: center;
-    text-transform: none; letter-spacing: 0;
+  .group-count { font-size: 12px; font-weight: 500; color: var(--txt-faint); font-variant-numeric: tabular-nums; }
+  .group-selall {
+    margin-left: auto; display: inline-flex; align-items: center; gap: 7px;
+    color: var(--txt-faint); font-size: 11px; cursor: pointer; user-select: none;
   }
-  .group-head input[type=checkbox] { margin: 0; }
-  .group-head .galbl { font-size: 11px; color: var(--txt-faint); font-weight: 500; }
-  .bulkrow { display: flex; gap: 10px; margin-bottom: 12px; }
+  .group-selall input[type=checkbox] { margin: 0; }
+  .group-selall:hover { color: var(--txt-dim); }
+
   .linkbtn {
     background: none; border: none; color: var(--txt-dim); cursor: pointer;
     font-size: 12px; text-decoration: underline; font-family: var(--sans); padding: 0;
@@ -270,9 +291,26 @@
   }
   .cat-pill:hover { border-color: var(--accent); }
 
+  /* Pin control: the one action shared by both surfaces. In Browse-all the
+     unpinned state invites the action; the pinned state reads as a settled
+     label, not a button shouting to be clicked. */
+  .pinbtn {
+    display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+    background: transparent; border: 1px solid var(--line); color: var(--txt-dim);
+    border-radius: 999px; padding: 4px 11px; font-size: 12px; cursor: pointer;
+    font-family: var(--sans);
+  }
+  .pinbtn:hover { border-color: var(--accent); color: var(--txt); }
+  .pinbtn.pinned {
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+    color: var(--txt);
+  }
+  .pinbtn .ic { font-size: 12px; line-height: 1; }
+
   /* Popover for category / tag pickers */
   .popover {
-    position: absolute; z-index: 50; min-width: 220px; max-width: 280px;
+    position: absolute; z-index: 80; min-width: 220px; max-width: 280px;
     background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
     box-shadow: 0 12px 40px rgba(0,0,0,.35); padding: 8px; font-size: 13px;
   }
@@ -302,12 +340,21 @@
   .iconbtn:hover { border-color: var(--accent); color: var(--txt); }
   .iconbtn.on { color: var(--waiting); border-color: var(--waiting); }
 
-  .empty { color: var(--txt-faint); text-align: center; padding: 60px 20px; font-size: 14px; }
+  /* Calm, inviting empty state for the curated Main view. */
+  .empty { color: var(--txt-faint); text-align: center; padding: 40px 20px; font-size: 14px; }
+  .empty-hero {
+    max-width: 420px; margin: 64px auto; text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+  }
+  .empty-hero .glyph { font-size: 34px; line-height: 1; opacity: .8; }
+  .empty-hero h2 { font-size: 17px; font-weight: 650; margin: 0; color: var(--txt); }
+  .empty-hero p { margin: 0; color: var(--txt-faint); font-size: 13.5px; max-width: 320px; }
+  .empty-hero .btn { margin-top: 4px; padding: 10px 18px; }
 
   /* sticky action bar */
   .actionbar {
     position: fixed; left: 50%; transform: translateX(-50%) translateY(160%);
-    bottom: 22px; z-index: 30;
+    bottom: 22px; z-index: 90;
     background: var(--bg-3); border: 1px solid var(--line);
     border-radius: 12px; padding: 10px 12px 10px 16px;
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
@@ -319,9 +366,42 @@
   .actionbar .n b { color: var(--txt); }
   .actionbar .iconbtn { padding: 6px 11px; font-size: 12px; }
 
+  /* Browse-all modal: a large centered overlay, dense and utilitarian. */
+  .overlay {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(0,0,0,.5);
+    display: none; align-items: flex-start; justify-content: center;
+    padding: 4vh 16px;
+  }
+  .overlay.show { display: flex; }
+  .modal {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 14px;
+    box-shadow: 0 20px 70px rgba(0,0,0,.55);
+    width: 100%; max-width: 1100px; max-height: 92vh;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .modal-head {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px; border-bottom: 1px solid var(--line);
+  }
+  .modal-head h2 { font-size: 15px; font-weight: 650; margin: 0; }
+  .modal-head .modsub { color: var(--txt-faint); font-size: 12px; }
+  .modal-close {
+    margin-left: auto; background: var(--bg-2); border: 1px solid var(--line);
+    color: var(--txt-dim); border-radius: 8px; width: 30px; height: 30px;
+    font-size: 16px; line-height: 1; cursor: pointer; display: inline-flex;
+    align-items: center; justify-content: center;
+  }
+  .modal-close:hover { border-color: var(--accent); color: var(--txt); }
+  .modal-controls {
+    display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap;
+    padding: 12px 18px; border-bottom: 1px solid var(--line-soft); background: var(--bg);
+  }
+  .modal-body { overflow-y: auto; padding: 4px 8px 16px; flex: 1; }
+
   /* toast */
   #toast {
-    position: fixed; bottom: 22px; right: 22px; z-index: 40;
+    position: fixed; bottom: 22px; right: 22px; z-index: 100;
     background: var(--bg-3); border: 1px solid var(--line);
     border-left: 3px solid var(--busy);
     color: var(--txt); padding: 11px 15px; border-radius: 8px; font-size: 13px;
@@ -341,6 +421,15 @@
   }
   #themeBtn:hover { border-color: var(--accent); color: var(--txt); }
   #themeBtn .ic { font-size: 14px; }
+
+  /* Quality floor: a clear, consistent keyboard focus ring everywhere. */
+  :focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
 </style>
 <script>
   // Apply the saved theme before first paint to avoid a flash of the default palette.
@@ -358,10 +447,11 @@
     <h1>Claude Sessions</h1>
     <span class="sub" id="updated">—</span>
     <div class="counts" id="counts"></div>
+    <button class="browseBtn" id="browseBtn" type="button">Browse all</button>
     <button id="themeBtn" type="button" title="Toggle theme"></button>
   </div>
   <div class="controls">
-    <input type="text" id="search" placeholder="Search title, project, tags…" autocomplete="off" spellcheck="false">
+    <input type="text" id="search" class="searchbox" placeholder="Search pinned by title, project, tags…" autocomplete="off" spellcheck="false">
     <div class="seg" id="groupseg">
       <button data-group="project" class="active">Group: Project</button>
       <button data-group="category">Category</button>
@@ -378,8 +468,6 @@
       <select class="filter" id="categoryFilter"><option value="">all</option></select></span>
     <span class="ctl"><span class="lbl">Tag</span>
       <select class="filter" id="tagFilter"><option value="">all</option></select></span>
-    <span class="ctl"><span class="lbl">Kinds</span>
-      <span class="kindchips" id="kindChips"></span></span>
     <label class="toggle"><input type="checkbox" id="showArchived"> Show archived</label>
     <button class="linkbtn" id="expandAll">expand all</button>
     <button class="linkbtn" id="collapseAll">collapse all</button>
@@ -393,10 +481,45 @@
 <div class="actionbar" id="actionbar">
   <span class="n"><b id="selCount">0</b> selected</span>
   <button class="btn" id="openBtn">Open selected</button>
-  <button class="iconbtn" id="bulkArchive">Archive all</button>
-  <button class="iconbtn" id="bulkUnarchive">Unarchive all</button>
+  <button class="iconbtn" id="bulkUnpin">Remove from dashboard</button>
+  <button class="iconbtn" id="bulkArchive">Archive</button>
+  <button class="iconbtn" id="bulkUnarchive">Unarchive</button>
   <button class="iconbtn" id="bulkCategory">Move to category…</button>
   <button class="linkbtn" id="clearSel">clear</button>
+</div>
+
+<!-- Browse-all modal: the firehose of every session, where you discover and pin. -->
+<div class="overlay" id="browseOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Browse all sessions">
+    <div class="modal-head">
+      <h2>Browse all sessions</h2>
+      <span class="modsub" id="browseSub"></span>
+      <button class="modal-close" id="browseClose" type="button" title="Close (Esc)" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-controls">
+      <input type="text" id="browseSearch" class="searchbox" placeholder="Search every session…" autocomplete="off" spellcheck="false">
+      <span class="ctl"><span class="lbl">Status</span>
+        <select class="filter" id="browseStatusFilter">
+          <option value="">all</option>
+          <option value="busy">busy</option>
+          <option value="waiting">waiting</option>
+          <option value="inactive">inactive</option>
+        </select></span>
+      <span class="ctl"><span class="lbl">Project</span>
+        <select class="filter" id="browseProjectFilter"><option value="">all</option></select></span>
+      <span class="ctl"><span class="lbl">Kinds</span>
+        <span class="kindchips" id="browseKindChips"></span></span>
+    </div>
+    <div class="modal-body" id="browseBody"></div>
+  </div>
+</div>
+
+<div class="actionbar" id="browseActionbar">
+  <span class="n"><b id="browseSelCount">0</b> selected</span>
+  <button class="btn" id="browseOpenBtn">Open selected</button>
+  <button class="iconbtn" id="browseBulkPin">Pin</button>
+  <button class="iconbtn" id="browseBulkUnpin">Unpin</button>
+  <button class="linkbtn" id="browseClearSel">clear</button>
 </div>
 
 <div id="toast"></div>
@@ -409,23 +532,34 @@
   const DEFAULT_KINDS = ["main", "worktree", "background"];
   const LS = {
     theme: "ccs-theme",
-    kinds: "ccs-kinds",
+    kinds: "ccs-browse-kinds",
     collapsed: "ccs-collapsed",
   };
 
+  // Two surfaces share one session feed. `main` is the curated pinned view;
+  // `browse` is the modal firehose. Each keeps its own filters and selection so
+  // closing the modal returns the user to an undisturbed Main view.
   const state = {
     sessions: [],
     options: { categories: [], tags: [] },
-    selected: new Set(),         // session ids
+    // ---- Main (pinned) view ----
+    selected: new Set(),
     filter: "",
     group: "project",            // project | category | none
     showArchived: false,
     statusFilter: "",
     categoryFilter: "",
     tagFilter: "",
-    visibleKinds: loadKinds(),   // Set of kind strings
-    collapsed: loadCollapsed(),  // Set of group names
-    expandedPreviews: new Set(), // ids with the message preview expanded
+    collapsed: loadCollapsed(),  // group names collapsed in Main
+    expandedPreviews: new Set(), // ids with the message preview expanded (both views)
+    // ---- Browse-all modal ----
+    browseOpen: false,
+    browseSelected: new Set(),
+    browseFilter: "",
+    browseStatusFilter: "",
+    browseProjectFilter: "",
+    browseKinds: loadKinds(),    // Set of kind strings, modal only
+    // ---- shared ----
     popoverOpen: false,          // suppress refresh re-render while a popover is up
   };
 
@@ -438,7 +572,7 @@
     return new Set(DEFAULT_KINDS);
   }
   function saveKinds() {
-    try { localStorage.setItem(LS.kinds, JSON.stringify([...state.visibleKinds])); } catch (e) {}
+    try { localStorage.setItem(LS.kinds, JSON.stringify([...state.browseKinds])); } catch (e) {}
   }
   function loadCollapsed() {
     try {
@@ -473,6 +607,14 @@
       body: JSON.stringify(meta),
     });
     if (!res.ok) throw new Error("meta " + res.status);
+  }
+
+  async function postPin(id, pinned) {
+    const res = await fetch("/api/pin", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, pinned }),
+    });
+    if (!res.ok) throw new Error("pin " + res.status);
   }
 
   async function postBulk(body) {
@@ -514,26 +656,30 @@
     return new Date(t).toLocaleDateString();
   }
 
-  function matchesFilter(s) {
-    const q = state.filter.trim().toLowerCase();
+  function textMatch(s, query) {
+    const q = query.trim().toLowerCase();
     if (!q) return true;
     const hay = [s.title, projBase(s.cwd), s.cwd, (s.tags || []).join(" "), s.category, s.lastMessage]
       .join(" ").toLowerCase();
     return q.split(/\s+/).every(term => hay.includes(term));
   }
 
-  // All filters combine with AND.
-  function passesFilters(s) {
+  // ---- Main (pinned) view filtering ----------------------------------------
+  function pinnedSessions() {
+    return state.sessions.filter(s => s.pinned);
+  }
+
+  // All Main filters combine with AND. Operates over pinned sessions only.
+  function passesMainFilters(s) {
     if (!state.showArchived && s.archived) return false;
-    if (!state.visibleKinds.has(s.kind)) return false;
     if (state.statusFilter && s.status !== state.statusFilter) return false;
     if (state.categoryFilter && (s.category || "") !== state.categoryFilter) return false;
     if (state.tagFilter && !(s.tags || []).includes(state.tagFilter)) return false;
-    return matchesFilter(s);
+    return textMatch(s, state.filter);
   }
 
-  function visibleSessions() {
-    return state.sessions.filter(passesFilters);
+  function visibleMainSessions() {
+    return pinnedSessions().filter(passesMainFilters);
   }
 
   function groupKey(s) {
@@ -551,6 +697,26 @@
       map.get(k).push(s);
     }
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }
+
+  // ---- Browse-all modal filtering ------------------------------------------
+  function passesBrowseFilters(s) {
+    if (!state.browseKinds.has(s.kind)) return false;
+    if (state.browseStatusFilter && s.status !== state.browseStatusFilter) return false;
+    if (state.browseProjectFilter && projBase(s.cwd) !== state.browseProjectFilter) return false;
+    return textMatch(s, state.browseFilter);
+  }
+
+  // Browse-all is ungrouped and sorted newest-active-first.
+  function visibleBrowseSessions() {
+    return state.sessions
+      .filter(passesBrowseFilters)
+      .sort((a, b) => new Date(b.lastActive) - new Date(a.lastActive));
+  }
+
+  function distinctProjects() {
+    const set = new Set(state.sessions.map(s => projBase(s.cwd)));
+    return [...set].sort((a, b) => a.localeCompare(b));
   }
 
   // ---- DOM construction ----------------------------------------------------
@@ -590,7 +756,7 @@
     const toggle = () => {
       if (state.expandedPreviews.has(s.id)) state.expandedPreviews.delete(s.id);
       else state.expandedPreviews.add(s.id);
-      render();
+      renderAll();
     };
     block.append(
       el("span", { class: "pcaret", onclick: toggle }, "▶"),
@@ -760,20 +926,50 @@
     activePopover.el.remove();
     activePopover = null;
     state.popoverOpen = false;
-    render();
+    renderAll();
   }
 
-  // ---- rows & groups -------------------------------------------------------
-  function row(s) {
+  // ---- pin control ----------------------------------------------------------
+  // The pin button says exactly what it does: "Pin" adopts the session into the
+  // dashboard; once pinned it reads "Pinned" and clicking removes it.
+  function pinControl(s) {
+    const pinned = !!s.pinned;
+    const btn = el("button", {
+      class: "pinbtn" + (pinned ? " pinned" : ""),
+      type: "button",
+      title: pinned ? "Remove from dashboard" : "Pin to dashboard",
+    }, el("span", { class: "ic" }, pinned ? "★" : "☆"), pinned ? "Pinned" : "Pin");
+    btn.addEventListener("click", (ev) => { ev.stopPropagation(); setPinned(s, !pinned); });
+    return btn;
+  }
+
+  async function setPinned(s, pinned) {
+    // Optimistic: reflect the change locally before the round-trip so both
+    // surfaces update immediately.
+    s.pinned = pinned;
+    if (!pinned) { s.category = ""; s.tags = []; s.archived = false; }
+    state.selected.delete(s.id);
+    renderAll();
+    try {
+      await postPin(s.id, pinned);
+      toast(pinned ? "Pinned" : "Removed from dashboard");
+    } catch (e) {
+      toast((pinned ? "Pin" : "Remove") + " failed: " + e.message, true);
+    }
+    renderAll();
+  }
+
+  // ---- Main view rows & groups ---------------------------------------------
+  function mainRow(s) {
     const pick = el("input", {
       type: "checkbox",
-      onchange: (ev) => toggleSelect(s.id, ev.target.checked),
+      onchange: (ev) => toggleMainSelect(s.id, ev.target.checked),
     });
     pick.checked = state.selected.has(s.id);
 
     const archBtn = el("button", {
       class: "iconbtn" + (s.archived ? " on" : ""),
-      title: s.archived ? "Unarchive" : "Archive",
+      title: s.archived ? "Unarchive" : "Archive (set aside, keep pinned)",
       onclick: () => commitMeta(s, { archived: !s.archived }),
     }, s.archived ? "archived" : "archive");
 
@@ -790,36 +986,51 @@
       el("td", null, s.gitBranch ? el("span", { class: "branch" }, s.gitBranch) : el("span", { class: "muted" }, "")),
       el("td", { class: "cat-cell" }, categoryControl(s)),
       el("td", { class: "tags-cell" }, tagsControl(s)),
-      el("td", null, archBtn));
+      el("td", null,
+        el("div", { class: "tags" },
+          archBtn,
+          el("button", { class: "iconbtn", title: "Remove from dashboard",
+            onclick: () => setPinned(s, false) }, "unpin"))));
   }
 
+  // A single tidy baseline-aligned row: caret button, name, count, select-all.
   function groupHead(name, sessions) {
     const collapsed = state.collapsed.has(name);
+    const head = el("div", { class: "group-head" + (collapsed ? " collapsed" : "") });
+
+    const toggle = () => {
+      if (state.collapsed.has(name)) state.collapsed.delete(name); else state.collapsed.add(name);
+      saveCollapsed();
+      renderMain();
+    };
+    const caret = el("button", {
+      class: "group-caret", type: "button",
+      title: collapsed ? "Expand group" : "Collapse group",
+      "aria-label": collapsed ? "Expand group" : "Collapse group",
+      onclick: toggle,
+    }, "▾");
+
     const allSel = sessions.length > 0 && sessions.every(s => state.selected.has(s.id));
-    const groupCheck = el("input", { type: "checkbox", title: "Select all in group" });
+    const groupCheck = el("input", { type: "checkbox" });
     groupCheck.checked = allSel;
-    groupCheck.addEventListener("click", (ev) => ev.stopPropagation());
     groupCheck.addEventListener("change", (ev) => {
       for (const s of sessions) {
         if (ev.target.checked) state.selected.add(s.id); else state.selected.delete(s.id);
       }
-      render();
+      renderMain();
     });
+    const selAll = el("label", { class: "group-selall", title: "Select every session in this group" },
+      groupCheck, "select all");
 
-    const head = el("div", { class: "group-head" + (collapsed ? " collapsed" : "") },
-      el("span", { class: "caret" }, "▾"),
-      el("span", null, name),
-      el("span", { class: "n" }, "· " + sessions.length),
-      el("span", { class: "ga" }, groupCheck, el("span", { class: "galbl" }, "all")));
-    head.addEventListener("click", () => {
-      if (state.collapsed.has(name)) state.collapsed.delete(name); else state.collapsed.add(name);
-      saveCollapsed();
-      render();
-    });
+    head.append(
+      caret,
+      el("span", { class: "group-name" }, name),
+      el("span", { class: "group-count" }, String(sessions.length)),
+      selAll);
     return head;
   }
 
-  function groupTable(sessions) {
+  function mainTable(sessions) {
     const thead = el("thead", null, el("tr", null,
       el("th", { class: "col-pick" }),
       el("th", { class: "col-status" }, "Status"),
@@ -831,7 +1042,7 @@
       el("th", null, "Tags"),
       el("th", null, "")));
     const tbody = el("tbody");
-    for (const s of sessions) tbody.append(row(s));
+    for (const s of sessions) tbody.append(mainRow(s));
     return el("div", { class: "table-wrap" }, el("table", null, thead, tbody));
   }
 
@@ -841,31 +1052,53 @@
       block.append(groupHead(name, sessions));
       if (state.collapsed.has(name)) return block;
     }
-    block.append(groupTable(sessions));
+    block.append(mainTable(sessions));
     return block;
   }
 
-  function render() {
-    // Never tear down the DOM out from under an open popover.
-    if (state.popoverOpen) { renderCounts(); renderActionBar(); return; }
+  // ---- render orchestration ------------------------------------------------
+  function renderAll() {
+    if (state.popoverOpen) { renderCounts(); renderMainActionBar(); renderBrowseActionBar(); return; }
+    renderMain();
+    if (state.browseOpen) renderBrowse();
+  }
+
+  function renderMain() {
+    if (state.popoverOpen) { renderCounts(); renderMainActionBar(); return; }
     const main = document.getElementById("main");
-    const sessions = visibleSessions();
+    const anyPinned = pinnedSessions().length > 0;
     main.replaceChildren();
-    if (!sessions.length) {
-      main.append(el("div", { class: "empty" }, "No sessions match."));
+    if (!anyPinned) {
+      main.append(emptyHero());
     } else {
-      for (const [name, group] of buildGroups(sessions)) {
-        main.append(groupBlock(name, group));
+      const sessions = visibleMainSessions();
+      if (!sessions.length) {
+        main.append(el("div", { class: "empty" }, "No pinned sessions match these filters."));
+      } else {
+        for (const [name, group] of buildGroups(sessions)) {
+          main.append(groupBlock(name, group));
+        }
       }
     }
     renderCounts();
-    renderActionBar();
+    renderMainActionBar();
+  }
+
+  // An empty Main view is an invitation to act, not a blank page.
+  function emptyHero() {
+    const browse = el("button", { class: "btn", type: "button", onclick: openBrowse }, "Browse all");
+    return el("div", { class: "empty-hero" },
+      el("div", { class: "glyph" }, "★"),
+      el("h2", null, "Your pinned workspace is empty"),
+      el("p", null, "Pin sessions to track them here. Browse all your sessions to find the ones worth keeping close."),
+      browse);
   }
 
   function renderCounts() {
+    // Counts describe the curated workspace: pinned sessions by status,
+    // honoring the archived toggle.
     const c = { busy: 0, waiting: 0, inactive: 0 };
-    for (const s of state.sessions) {
-      if (!state.visibleKinds.has(s.kind)) continue;
+    for (const s of pinnedSessions()) {
       if (s.archived && !state.showArchived) continue;
       c[s.status]++;
     }
@@ -881,27 +1114,92 @@
       el("b", null, String(n)), kind);
   }
 
-  function renderActionBar() {
+  function renderMainActionBar() {
     const bar = document.getElementById("actionbar");
     const n = state.selected.size;
     document.getElementById("selCount").textContent = String(n);
     document.getElementById("openBtn").textContent = "Open selected (" + n + ")";
-    bar.classList.toggle("show", n > 0);
+    // The Main action bar must yield to the modal so the two never overlap.
+    bar.classList.toggle("show", n > 0 && !state.browseOpen);
+  }
+
+  // ---- Browse-all modal rendering ------------------------------------------
+  function browseRow(s) {
+    const pick = el("input", {
+      type: "checkbox",
+      onchange: (ev) => toggleBrowseSelect(s.id, ev.target.checked),
+    });
+    pick.checked = state.browseSelected.has(s.id);
+
+    const projTd = el("td", null,
+      el("div", { class: "proj" }, projBase(s.cwd)),
+      el("div", { class: "cwd", title: s.cwd }, s.cwd || ""));
+
+    return el("tr", { class: state.browseSelected.has(s.id) ? "sel" : "" },
+      el("td", { class: "col-pick" }, pick),
+      el("td", { class: "col-status" }, statusBadge(s.status)),
+      projTd,
+      el("td", null, titleCell(s)),
+      el("td", { class: "col-when" }, el("span", { class: "when", title: s.lastActive }, relTime(s.lastActive))),
+      el("td", null, pinControl(s)));
+  }
+
+  function browseTable(sessions) {
+    const thead = el("thead", null, el("tr", null,
+      el("th", { class: "col-pick" }),
+      el("th", { class: "col-status" }, "Status"),
+      el("th", null, "Project"),
+      el("th", null, "Title"),
+      el("th", { class: "col-when" }, "Active"),
+      el("th", null, "")));
+    const tbody = el("tbody");
+    for (const s of sessions) tbody.append(browseRow(s));
+    return el("div", { class: "table-wrap" }, el("table", null, thead, tbody));
+  }
+
+  function renderBrowse() {
+    if (state.popoverOpen) { renderBrowseActionBar(); return; }
+    const body = document.getElementById("browseBody");
+    const sessions = visibleBrowseSessions();
+    body.replaceChildren();
+    if (!sessions.length) {
+      body.append(el("div", { class: "empty" }, "No sessions match these filters."));
+    } else {
+      body.append(browseTable(sessions));
+    }
+    const total = state.sessions.length;
+    const pinned = pinnedSessions().length;
+    document.getElementById("browseSub").textContent =
+      sessions.length + " of " + total + " shown · " + pinned + " pinned";
+    fillProjectFilter();
+    renderBrowseActionBar();
+  }
+
+  function renderBrowseActionBar() {
+    const bar = document.getElementById("browseActionbar");
+    const n = state.browseSelected.size;
+    document.getElementById("browseSelCount").textContent = String(n);
+    document.getElementById("browseOpenBtn").textContent = "Open selected (" + n + ")";
+    bar.classList.toggle("show", n > 0 && state.browseOpen);
+  }
+
+  function fillProjectFilter() {
+    fillSelect(document.getElementById("browseProjectFilter"), distinctProjects(), state.browseProjectFilter);
   }
 
   // ---- filter controls render ----------------------------------------------
-  function renderKindChips() {
-    const box = document.getElementById("kindChips");
+  function renderBrowseKindChips() {
+    const box = document.getElementById("browseKindChips");
     box.replaceChildren();
     for (const k of ALL_KINDS) {
-      const on = state.visibleKinds.has(k);
+      const on = state.browseKinds.has(k);
       const chip = el("span", { class: "kindchip" + (on ? " on" : "") }, k);
       chip.addEventListener("click", () => {
-        if (state.visibleKinds.has(k)) state.visibleKinds.delete(k); else state.visibleKinds.add(k);
+        if (state.browseKinds.has(k)) state.browseKinds.delete(k); else state.browseKinds.add(k);
         saveKinds();
-        renderKindChips();
-        pruneSelection();
-        render();
+        renderBrowseKindChips();
+        pruneBrowseSelection();
+        renderBrowse();
       });
       box.append(chip);
     }
@@ -919,10 +1217,14 @@
     sel.value = current || "";
   }
 
-  // ---- mutations -----------------------------------------------------------
-  function toggleSelect(id, on) {
+  // ---- selection mutations -------------------------------------------------
+  function toggleMainSelect(id, on) {
     if (on) state.selected.add(id); else state.selected.delete(id);
-    render();
+    renderMain();
+  }
+  function toggleBrowseSelect(id, on) {
+    if (on) state.browseSelected.add(id); else state.browseSelected.delete(id);
+    renderBrowse();
   }
 
   async function commitMeta(s, patch) {
@@ -944,7 +1246,7 @@
     } catch (e) {
       toast("Save failed: " + e.message, true);
     }
-    render();
+    renderAll();
   }
 
   function registerOption(kind, value) {
@@ -953,23 +1255,50 @@
     }
   }
 
-  async function runBulk(action, value) {
+  // ---- Main bulk actions ---------------------------------------------------
+  async function runMainBulk(action, value) {
     const ids = [...state.selected];
     if (!ids.length) return;
     try {
       const res = await postBulk({ ids, action, value: value || "" });
       if (value) registerOption("categories", value);
-      toast("Updated " + res.updated + " session" + (res.updated === 1 ? "" : "s"));
+      toast(bulkToast(action, res.updated));
       await refresh();
     } catch (e) {
-      toast("Bulk failed: " + e.message, true);
+      toast("Bulk action failed: " + e.message, true);
     }
   }
 
-  async function openSelected() {
-    const ids = [...state.selected];
+  function bulkToast(action, n) {
+    const plural = n === 1 ? "session" : "sessions";
+    if (action === "unpin") return "Removed " + n + " " + plural + " from dashboard";
+    if (action === "pin") return "Pinned " + n + " " + plural;
+    return "Updated " + n + " " + plural;
+  }
+
+  async function openMainSelected() {
+    await openIds([...state.selected], document.getElementById("openBtn"));
+  }
+
+  // ---- Browse bulk actions -------------------------------------------------
+  async function runBrowseBulk(action) {
+    const ids = [...state.browseSelected];
     if (!ids.length) return;
-    const btn = document.getElementById("openBtn");
+    try {
+      const res = await postBulk({ ids, action, value: "" });
+      toast(bulkToast(action, res.updated));
+      await refresh();
+    } catch (e) {
+      toast("Bulk action failed: " + e.message, true);
+    }
+  }
+
+  async function openBrowseSelected() {
+    await openIds([...state.browseSelected], document.getElementById("browseOpenBtn"));
+  }
+
+  async function openIds(ids, btn) {
+    if (!ids.length) return;
     btn.disabled = true;
     try {
       const res = await postOpen(ids);
@@ -989,20 +1318,41 @@
       const search = pop.appendChild(searchInput(q));
       const list = el("div", { class: "poplist" });
       const opts = state.options.categories.filter(c => c.toLowerCase().includes(q.toLowerCase()));
-      for (const c of opts) list.append(popItem(false, c, () => { close(); runBulk("category", c); }));
+      for (const c of opts) list.append(popItem(false, c, () => { close(); runMainBulk("category", c); }));
       const typed = q.trim();
       const exact = state.options.categories.some(c => c.toLowerCase() === typed.toLowerCase());
       if (typed && !exact) {
-        list.append(el("div", { class: "popitem create", onclick: () => { close(); runBulk("category", typed); } },
+        list.append(el("div", { class: "popitem create", onclick: () => { close(); runMainBulk("category", typed); } },
           el("span", { class: "name" }, '➕ Create "' + typed + '"')));
       }
       if (!opts.length && !(typed && !exact)) list.append(el("div", { class: "popempty" }, "No categories"));
       pop.append(list);
       pop.append(el("div", { class: "popdiv" }));
-      pop.append(el("div", { class: "popitem clear", onclick: () => { close(); runBulk("category", ""); } },
+      pop.append(el("div", { class: "popitem clear", onclick: () => { close(); runMainBulk("category", ""); } },
         el("span", { class: "name" }, "✕ Clear category")));
       return search;
     });
+  }
+
+  // ---- modal open / close --------------------------------------------------
+  function openBrowse() {
+    state.browseOpen = true;
+    document.getElementById("browseOverlay").classList.add("show");
+    renderBrowseKindChips();
+    fillProjectFilter();
+    renderBrowse();
+    renderMainActionBar();
+    const inp = document.getElementById("browseSearch");
+    if (inp) inp.focus();
+  }
+
+  function closeBrowse() {
+    if (!state.browseOpen) return;
+    state.browseOpen = false;
+    document.getElementById("browseOverlay").classList.remove("show");
+    renderBrowseActionBar();
+    // Return to a fully up-to-date Main view (pins may have changed inside).
+    renderMain();
   }
 
   // ---- refresh loop --------------------------------------------------------
@@ -1015,8 +1365,9 @@
       state.sessions = sessions;
       state.options = options;
       pruneSelection();
+      pruneBrowseSelection();
       syncOptionFilters();
-      render();
+      renderAll();
     } catch (e) {
       toast("Refresh failed: " + e.message, true);
     }
@@ -1025,6 +1376,10 @@
   function pruneSelection() {
     const ids = new Set(state.sessions.map(s => s.id));
     for (const id of [...state.selected]) if (!ids.has(id)) state.selected.delete(id);
+  }
+  function pruneBrowseSelection() {
+    const ids = new Set(state.sessions.map(s => s.id));
+    for (const id of [...state.browseSelected]) if (!ids.has(id)) state.browseSelected.delete(id);
   }
 
   // ---- toast ---------------------------------------------------------------
@@ -1083,60 +1438,88 @@
     applyTheme(THEME_CYCLE[(i + 1) % THEME_CYCLE.length]);
   }
 
-  // ---- expand / collapse all -----------------------------------------------
+  // ---- expand / collapse all (Main only) -----------------------------------
   function currentGroupNames() {
-    return buildGroups(visibleSessions()).map(([name]) => name).filter(Boolean);
+    return buildGroups(visibleMainSessions()).map(([name]) => name).filter(Boolean);
   }
   function collapseAll() {
     for (const n of currentGroupNames()) state.collapsed.add(n);
-    saveCollapsed(); render();
+    saveCollapsed(); renderMain();
   }
   function expandAll() {
     state.collapsed.clear();
-    saveCollapsed(); render();
+    saveCollapsed(); renderMain();
   }
 
   // ---- wiring --------------------------------------------------------------
-  function wireControls() {
+  function wireMainControls() {
     renderThemeBtn(currentTheme());
-    renderKindChips();
     document.getElementById("themeBtn").addEventListener("click", cycleTheme);
     document.getElementById("search").addEventListener("input", (e) => {
-      state.filter = e.target.value; render();
+      state.filter = e.target.value; renderMain();
     });
     document.getElementById("showArchived").addEventListener("change", (e) => {
-      state.showArchived = e.target.checked; pruneSelection(); render();
+      state.showArchived = e.target.checked; pruneSelection(); renderMain();
     });
     document.getElementById("statusFilter").addEventListener("change", (e) => {
-      state.statusFilter = e.target.value; render();
+      state.statusFilter = e.target.value; renderMain();
     });
     document.getElementById("categoryFilter").addEventListener("change", (e) => {
-      state.categoryFilter = e.target.value; render();
+      state.categoryFilter = e.target.value; renderMain();
     });
     document.getElementById("tagFilter").addEventListener("change", (e) => {
-      state.tagFilter = e.target.value; render();
+      state.tagFilter = e.target.value; renderMain();
     });
     document.getElementById("groupseg").addEventListener("click", (e) => {
       const btn = e.target.closest("button[data-group]");
       if (!btn) return;
       state.group = btn.dataset.group;
       for (const b of e.currentTarget.children) b.classList.toggle("active", b === btn);
-      render();
+      renderMain();
     });
     document.getElementById("expandAll").addEventListener("click", expandAll);
     document.getElementById("collapseAll").addEventListener("click", collapseAll);
-    document.getElementById("openBtn").addEventListener("click", openSelected);
-    document.getElementById("bulkArchive").addEventListener("click", () => runBulk("archive"));
-    document.getElementById("bulkUnarchive").addEventListener("click", () => runBulk("unarchive"));
+    document.getElementById("openBtn").addEventListener("click", openMainSelected);
+    document.getElementById("bulkUnpin").addEventListener("click", () => runMainBulk("unpin"));
+    document.getElementById("bulkArchive").addEventListener("click", () => runMainBulk("archive"));
+    document.getElementById("bulkUnarchive").addEventListener("click", () => runMainBulk("unarchive"));
     document.getElementById("bulkCategory").addEventListener("click", (e) =>
       openBulkCategoryPopover(e.currentTarget));
     document.getElementById("clearSel").addEventListener("click", () => {
-      state.selected.clear(); render();
+      state.selected.clear(); renderMain();
+    });
+  }
+
+  function wireBrowseControls() {
+    document.getElementById("browseBtn").addEventListener("click", openBrowse);
+    document.getElementById("browseClose").addEventListener("click", closeBrowse);
+    // Outside-click on the dim backdrop closes; clicks inside the modal don't.
+    document.getElementById("browseOverlay").addEventListener("mousedown", (e) => {
+      if (e.target === e.currentTarget) closeBrowse();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && state.browseOpen && !state.popoverOpen) closeBrowse();
+    });
+    document.getElementById("browseSearch").addEventListener("input", (e) => {
+      state.browseFilter = e.target.value; renderBrowse();
+    });
+    document.getElementById("browseStatusFilter").addEventListener("change", (e) => {
+      state.browseStatusFilter = e.target.value; renderBrowse();
+    });
+    document.getElementById("browseProjectFilter").addEventListener("change", (e) => {
+      state.browseProjectFilter = e.target.value; renderBrowse();
+    });
+    document.getElementById("browseOpenBtn").addEventListener("click", openBrowseSelected);
+    document.getElementById("browseBulkPin").addEventListener("click", () => runBrowseBulk("pin"));
+    document.getElementById("browseBulkUnpin").addEventListener("click", () => runBrowseBulk("unpin"));
+    document.getElementById("browseClearSel").addEventListener("click", () => {
+      state.browseSelected.clear(); renderBrowse();
     });
   }
 
   // ---- boot ----------------------------------------------------------------
-  wireControls();
+  wireMainControls();
+  wireBrowseControls();
   refresh();
   setInterval(refresh, 4000);
 })();

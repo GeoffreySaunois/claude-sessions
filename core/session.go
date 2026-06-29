@@ -67,6 +67,7 @@ type Session struct {
 	Version     string    `json:"version"` // Claude Code version that wrote the transcript
 
 	// User-maintained organization metadata (sidecar, never from ~/.claude).
+	Pinned   bool     `json:"pinned"` // adopted into the curated dashboard
 	Category string   `json:"category"`
 	Tags     []string `json:"tags"`
 	Archived bool     `json:"archived"`

@@ -78,6 +78,66 @@ func TestApplyMetaPatchOnlyTouchesPresentFields(t *testing.T) {
 	})
 }
 
+// applyBulk routes "pin"/"unpin" through SetPinnedMany (which also clears a
+// session's organization on unpin) and every other action through the metadata
+// mutator. A misroute would silently fail to pin, or leave stale category/tags
+// on an unpinned session, so we exercise the pin path against a real store and
+// confirm unpin wipes organization. The temp CLAUDE_CONFIG_DIR keeps this off
+// the user's real meta.json.
+func TestApplyBulkPinUnpin(t *testing.T) {
+	t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+
+	load := func() *core.MetaStore {
+		store, err := core.LoadMetaStore()
+		if err != nil {
+			t.Fatalf("load store: %v", err)
+		}
+		return store
+	}
+
+	// Seed: a session with organization, then pin it.
+	if err := load().Update("s1", func(m *core.SessionMeta) {
+		m.Category = "work"
+		m.Tags = []string{"x"}
+		m.Archived = true
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := applyBulk(load(), bulkRequest{IDs: []string{"s1"}, Action: "pin"}); err != nil {
+		t.Fatalf("pin: %v", err)
+	}
+	if !load().Get("s1").Pinned {
+		t.Fatal("pin did not persist Pinned")
+	}
+
+	// Unpin must drop the session from the curated set AND wipe its org.
+	if err := applyBulk(load(), bulkRequest{IDs: []string{"s1"}, Action: "unpin"}); err != nil {
+		t.Fatalf("unpin: %v", err)
+	}
+	got := load().Get("s1")
+	if got.Pinned {
+		t.Fatal("unpin did not clear Pinned")
+	}
+	if got.Category != "" || len(got.Tags) != 0 || got.Archived {
+		t.Fatalf("unpin did not wipe organization: %+v", got)
+	}
+}
+
+func TestApplyBulkUnknownAction(t *testing.T) {
+	t.Setenv("CLAUDE_CONFIG_DIR", t.TempDir())
+	store, err := core.LoadMetaStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = applyBulk(store, bulkRequest{IDs: []string{"s1"}, Action: "delete"})
+	if err == nil {
+		t.Fatal("expected error for unknown action")
+	}
+	if bulkErrorStatus(err) != 400 {
+		t.Fatalf("unknown action should map to 400, got %d", bulkErrorStatus(err))
+	}
+}
+
 // bulkMutator dispatches the bulk action to the right SessionMeta change. A
 // wrong dispatch (e.g. archive setting unarchive, or category not applying the
 // value) would corrupt many sessions at once, so we check each branch and that
