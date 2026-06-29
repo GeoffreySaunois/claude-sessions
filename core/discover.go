@@ -2,6 +2,7 @@ package core
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"io"
 	"os"
@@ -9,11 +10,15 @@ import (
 	"strings"
 )
 
-// metadataScanBytes caps how much of each transcript is parsed for metadata.
-// cwd/branch appear in the first turn and titles recur on nearly every turn,
-// so the head reliably carries them while keeping a full-corpus scan fast even
-// across thousands of multi-megabyte transcripts.
-const metadataScanBytes = 512 * 1024
+// Metadata (cwd, branch, titles) lives on small message lines, but a transcript
+// can open with very large lines — file-history snapshots, pasted-image
+// attachments — that a byte budget would be exhausted by before the first
+// message. So the head scan is bounded by line count and skips oversized lines
+// rather than capping total bytes.
+const (
+	maxMetaLines = 5000
+	maxLineBytes = 256 * 1024
+)
 
 // transcriptLine is the subset of a transcript JSONL row this package reads.
 type transcriptLine struct {
@@ -79,13 +84,26 @@ func parseTranscript(projDir, name string) (Session, bool) {
 		SizeBytes:  info.Size(),
 		Status:     StatusInactive,
 	}
-	entrypoint, sessionKind := scanTranscriptHead(path, &s)
+	entrypoint, sessionKind, hasMessages := scanTranscriptHead(path, &s)
+	if !hasMessages {
+		return Session{}, false // empty stub (e.g. a lone bridge-session marker)
+	}
+	if s.Cwd == "" {
+		s.Cwd = cwdFromSlug(projDir)
+	}
 	s.Kind = classifyKind(s.Cwd, entrypoint, sessionKind)
 	s.LastMessage = readLastMessage(path, info.Size())
 	if s.Title == "" {
 		s.Title = s.ID
 	}
 	return s, true
+}
+
+// cwdFromSlug recovers a best-effort working directory from a project directory
+// name, which Claude Code derives from the cwd by replacing path separators with
+// dashes. Used only when a transcript carries no cwd of its own.
+func cwdFromSlug(projDir string) string {
+	return strings.ReplaceAll(filepath.Base(projDir), "-", "/")
 }
 
 // classifyKind separates the user's interactive work from automated and fixture
@@ -112,54 +130,79 @@ func classifyKind(cwd, entrypoint, sessionKind string) Kind {
 // classification. A custom title wins over an ai title, which wins over the
 // first user prompt; the last-seen title of each kind is kept so a renamed
 // session shows its current name.
-func scanTranscriptHead(path string, s *Session) (entrypoint, sessionKind string) {
+func scanTranscriptHead(path string, s *Session) (entrypoint, sessionKind string, hasMessages bool) {
 	f, err := os.Open(path)
 	if err != nil {
-		return "", ""
+		return "", "", false
 	}
 	defer f.Close()
 
+	r := bufio.NewReaderSize(f, 64*1024)
 	var customTitle, aiTitle, firstPrompt string
-	r := bufio.NewReader(io.LimitReader(f, metadataScanBytes))
-	sc := bufio.NewScanner(r)
-	sc.Buffer(make([]byte, 0, 64*1024), 8*1024*1024)
-	for sc.Scan() {
-		var line transcriptLine
-		if json.Unmarshal(sc.Bytes(), &line) != nil {
-			continue
-		}
-		if s.Cwd == "" && line.Cwd != "" {
-			s.Cwd = line.Cwd
-		}
-		if s.GitBranch == "" && line.GitBranch != "" {
-			s.GitBranch = line.GitBranch
-		}
-		if s.Version == "" && line.Version != "" {
-			s.Version = line.Version
-		}
-		if entrypoint == "" && line.Entrypoint != "" {
-			entrypoint = line.Entrypoint
-		}
-		if sessionKind == "" && line.SessionKind != "" {
-			sessionKind = line.SessionKind
-		}
-		switch line.Type {
-		case "custom-title":
-			if line.CustomTitle != "" {
-				customTitle = line.CustomTitle
+	for i := 0; i < maxMetaLines; i++ {
+		raw, tooLong, rerr := readBoundedLine(r, maxLineBytes)
+		if len(raw) > 0 && !tooLong {
+			var line transcriptLine
+			if json.Unmarshal(raw, &line) == nil {
+				if s.Cwd == "" && line.Cwd != "" {
+					s.Cwd = line.Cwd
+				}
+				if s.GitBranch == "" && line.GitBranch != "" {
+					s.GitBranch = line.GitBranch
+				}
+				if s.Version == "" && line.Version != "" {
+					s.Version = line.Version
+				}
+				if entrypoint == "" && line.Entrypoint != "" {
+					entrypoint = line.Entrypoint
+				}
+				if sessionKind == "" && line.SessionKind != "" {
+					sessionKind = line.SessionKind
+				}
+				switch line.Type {
+				case "custom-title":
+					if line.CustomTitle != "" {
+						customTitle = line.CustomTitle
+					}
+				case "ai-title":
+					if line.AiTitle != "" {
+						aiTitle = line.AiTitle
+					}
+				case "user":
+					hasMessages = true
+					if firstPrompt == "" && line.Message != nil && line.Message.Role == "user" {
+						firstPrompt = cleanPrompt(firstUserText(line.Message.Content))
+					}
+				case "assistant":
+					hasMessages = true
+				}
 			}
-		case "ai-title":
-			if line.AiTitle != "" {
-				aiTitle = line.AiTitle
-			}
-		case "user":
-			if firstPrompt == "" && line.Message != nil && line.Message.Role == "user" {
-				firstPrompt = cleanPrompt(firstUserText(line.Message.Content))
-			}
+		}
+		if rerr != nil {
+			break // EOF or read error
 		}
 	}
 	s.Title = pickTitle(customTitle, aiTitle, firstPrompt)
-	return entrypoint, sessionKind
+	return entrypoint, sessionKind, hasMessages
+}
+
+// readBoundedLine reads one newline-delimited line, keeping at most max bytes.
+// Lines longer than max (file snapshots, pasted images) are drained and flagged
+// via tooLong so the caller skips them rather than stalling the scan. err is
+// io.EOF (or another read error) once the file ends.
+func readBoundedLine(r *bufio.Reader, max int) (line []byte, tooLong bool, err error) {
+	for {
+		chunk, rerr := r.ReadSlice('\n')
+		if !tooLong && len(line)+len(chunk) <= max {
+			line = append(line, chunk...)
+		} else {
+			tooLong = true
+		}
+		if rerr == bufio.ErrBufferFull {
+			continue
+		}
+		return bytes.TrimRight(line, "\r\n"), tooLong, rerr
+	}
 }
 
 // lastMessageScanBytes caps how much of the transcript tail is read for the
