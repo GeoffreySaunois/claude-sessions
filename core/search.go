@@ -10,9 +10,13 @@ import (
 	"sync"
 )
 
-// snippetContext is how many characters of surrounding text a search snippet
-// keeps on each side of the first matched term.
-const snippetContext = 90
+// A snippet keeps a little context before the match and more after it, so the
+// matched term sits near the start of the line and stays visible even when the
+// UI truncates a long snippet with an ellipsis.
+const (
+	snippetLead  = 24
+	snippetTrail = 180
+)
 
 // SearchTranscripts scans every transcript's conversation text and returns, for
 // each session whose messages contain all whitespace-separated query terms
@@ -156,11 +160,11 @@ func snippetAround(text, lowered, term string) string {
 	if i < 0 {
 		return truncate(collapseSpaces(text), 180)
 	}
-	start := i - snippetContext
+	start := i - snippetLead
 	if start < 0 {
 		start = 0
 	}
-	end := i + len(term) + snippetContext
+	end := i + len(term) + snippetTrail
 	if end > len(text) {
 		end = len(text)
 	}
