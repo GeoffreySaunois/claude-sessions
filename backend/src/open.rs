@@ -49,34 +49,43 @@ pub fn open(sessions: &[Session], cfg: &OpenConfig) -> std::io::Result<()> {
 /// build_ghostty_script assembles the AppleScript that opens the sessions. It is
 /// pure (no side effects) so it can be unit-tested and previewed.
 fn build_ghostty_script(sessions: &[Session], cfg: &OpenConfig) -> String {
-    let split_key = if cfg.split_down {
-        r#"keystroke "d" using {command down, shift down}"#
+    // command-down, plus shift for a vertical stack.
+    let split_mods = if cfg.split_down {
+        "{command down, shift down}"
     } else {
-        r#"keystroke "d" using command down"#
+        "command down"
     };
+    let se = "tell application \"System Events\" to ";
     let mut b = String::new();
     b.push_str("tell application \"Ghostty\" to activate\n");
     b.push_str("delay 0.3\n");
-    b.push_str("tell application \"System Events\"\n");
+    // Each resume command is PASTED (⌘V), not typed: System Events `keystroke`
+    // drops characters from long strings, which mangled the command on slower
+    // shells. Save the clipboard first so we can restore it afterward.
+    b.push_str("set savedClip to \"\"\n");
+    b.push_str("try\n\tset savedClip to (the clipboard as text)\nend try\n");
     for s in sessions.iter() {
-        // Every session opens as a split of the currently-focused pane (⌘D, or
-        // ⌘⇧D for a vertical stack) — no new tab.
-        b.push('\t');
-        b.push_str(split_key);
-        b.push('\n');
-        let _ = writeln!(b, "\tdelay {}", format_delay(cfg.split_delay));
+        // Open a split of the currently-focused pane (no new tab).
+        let _ = writeln!(b, "{se}keystroke \"d\" using {split_mods}");
+        let _ = writeln!(b, "delay {}", format_delay(cfg.split_delay));
         let _ = writeln!(
             b,
-            "\tkeystroke {}",
+            "set the clipboard to {}",
             applescript_string(&resume_command(cfg, s))
         );
-        b.push_str("\tkeystroke return\n");
+        b.push_str("delay 0.08\n");
+        let _ = writeln!(b, "{se}keystroke \"v\" using command down"); // paste
+        let _ = writeln!(b, "{se}keystroke return");
         if cfg.equalize {
             // ⌘⌃= — rebalance the splits so the panes stay evenly sized.
-            b.push_str("\tkeystroke \"=\" using {command down, control down}\n");
+            let _ = writeln!(
+                b,
+                "{se}keystroke \"=\" using {{command down, control down}}"
+            );
         }
     }
-    b.push_str("end tell\n");
+    b.push_str("delay 0.1\n");
+    b.push_str("try\n\tset the clipboard to savedClip\nend try\n");
     b
 }
 
@@ -147,7 +156,13 @@ mod tests {
             script.matches("keystroke \"d\" using command down").count(),
             2
         );
-        assert!(script.contains(r"cd '/a b' && claude --resume id1"));
+        // The command is pasted (clipboard + ⌘V), never typed char-by-char.
+        assert!(script.contains(r#"set the clipboard to "cd '/a b' && claude --resume id1""#));
+        assert!(!script.contains("keystroke \"cd"));
+        assert_eq!(
+            script.matches("keystroke \"v\" using command down").count(),
+            2
+        );
         assert!(script.contains("delay 0.45"));
         // Splits are equalized after each one (⌘⌃=).
         assert_eq!(
