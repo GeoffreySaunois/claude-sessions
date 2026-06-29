@@ -38,6 +38,22 @@
     store.clampFocus();
   });
 
+  // Keep --header-h in sync with the sticky header's real height so scrolling a
+  // keyboard-focused row into view never tucks it under the header.
+  $effect(() => {
+    const header = document.querySelector("header");
+    if (!header) return;
+    const apply = () =>
+      document.documentElement.style.setProperty(
+        "--header-h",
+        `${header.getBoundingClientRect().height}px`,
+      );
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(header);
+    return () => ro.disconnect();
+  });
+
   // Persist the Main-view preferences (search, grouping, filters) across reloads.
   $effect(() => {
     void [
