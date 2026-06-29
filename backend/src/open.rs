@@ -18,6 +18,9 @@ pub struct OpenConfig {
     pub split_delay: f64,
     /// SplitDown lays sessions out in a vertical stack instead of side by side.
     pub split_down: bool,
+    /// Equalize re-balances all splits (Ghostty ⌘⌃=) after each new one, so the
+    /// panes stay evenly sized instead of each split halving the previous pane.
+    pub equalize: bool,
 }
 
 impl Default for OpenConfig {
@@ -27,6 +30,7 @@ impl Default for OpenConfig {
             resume_command: "cd {{cwd}} && claude --resume {{id}}".to_string(),
             split_delay: 0.45,
             split_down: false,
+            equalize: true,
         }
     }
 }
@@ -67,6 +71,10 @@ fn build_ghostty_script(sessions: &[Session], cfg: &OpenConfig) -> String {
             applescript_string(&resume_command(cfg, s))
         );
         b.push_str("\tkeystroke return\n");
+        if cfg.equalize {
+            // ⌘⌃= — rebalance the splits so the panes stay evenly sized.
+            b.push_str("\tkeystroke \"=\" using {command down, control down}\n");
+        }
     }
     b.push_str("end tell\n");
     b
@@ -141,5 +149,12 @@ mod tests {
         );
         assert!(script.contains(r"cd '/a b' && claude --resume id1"));
         assert!(script.contains("delay 0.45"));
+        // Splits are equalized after each one (⌘⌃=).
+        assert_eq!(
+            script
+                .matches(r#"keystroke "=" using {command down, control down}"#)
+                .count(),
+            2
+        );
     }
 }
