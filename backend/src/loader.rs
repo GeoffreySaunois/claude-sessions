@@ -23,6 +23,6 @@ pub fn load_sessions() -> std::io::Result<Vec<Session>> {
     }
     // Newest active first, by the numeric mtime so variable-width RFC3339
     // fractional seconds can't perturb the order.
-    sessions.sort_by(|a, b| b.last_active_nanos.cmp(&a.last_active_nanos));
+    sessions.sort_by_key(|s| std::cmp::Reverse(s.last_active_nanos));
     Ok(sessions)
 }
