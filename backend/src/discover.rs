@@ -343,7 +343,9 @@ fn last_message_preview(lines: &[&str]) -> String {
         if line.r#type != "user" && line.r#type != "assistant" {
             continue;
         }
-        let text = clean_prompt(&first_user_text(&msg.content));
+        // Keep the full multi-line message (wrappers stripped) so the preview can
+        // expand beyond the first line.
+        let text = strip_wrappers(&first_user_text(&msg.content));
         if !text.trim().is_empty() {
             return truncate(text.trim(), 600);
         }
@@ -382,11 +384,11 @@ fn first_user_text(raw: &serde_json::Value) -> String {
     String::new()
 }
 
-/// clean_prompt strips harness-injected wrappers (system reminders, command
-/// caveats, slash-command envelopes) so a prompt-derived title shows what the
-/// user actually typed rather than machinery. It removes any leading run of
-/// angle-bracket-tagged blocks and returns the first real line of prose.
-fn clean_prompt(s: &str) -> String {
+/// strip_wrappers removes any leading run of harness-injected angle-bracket
+/// blocks (system reminders, command caveats, slash-command envelopes) so what
+/// remains is what the user/assistant actually wrote. Newlines are KEPT, so a
+/// multi-line message stays multi-line (used for the expandable preview).
+fn strip_wrappers(s: &str) -> String {
     let mut s = s.to_string();
     loop {
         s = s.trim().to_string();
@@ -408,6 +410,13 @@ fn clean_prompt(s: &str) -> String {
         }
         s = s[end + 1..].to_string();
     }
+    s
+}
+
+/// clean_prompt is strip_wrappers reduced to the first line — for the one-line
+/// title fallback.
+fn clean_prompt(s: &str) -> String {
+    let s = strip_wrappers(s);
     match s.split_once('\n') {
         Some((line, _)) => line.to_string(),
         None => s,
