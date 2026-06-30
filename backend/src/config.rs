@@ -9,15 +9,18 @@ use std::path::PathBuf;
 
 use crate::session::claude_dir;
 
-/// OpenSettings are the "Open in Ghostty" knobs a user can override.
+/// OpenSettings are the "Open in the terminal" knobs a user can override.
 pub struct OpenSettings {
-    /// Program that resumes a session: `<resume_program> --resume <id>`.
-    /// Default "claude"; set to your own launcher/alias (e.g. "cc").
-    pub resume_program: String,
-    /// Rebalance the splits (⌘⌃=) after each new one.
-    pub equalize: bool,
-    /// Stack splits vertically (⌘⇧D) instead of side by side (⌘D).
-    pub split_down: bool,
+    /// The `claude` command, possibly an alias with flags
+    /// (e.g. "claude --dangerously-skip-permissions"). Invoked as
+    /// `<claude_alias> --resume <id>`.
+    pub claude_alias: String,
+    /// Terminal app to drive (AppleScript `tell application "<app>"`).
+    pub terminal_app: String,
+    /// Keybinding that opens a split, e.g. "cmd+d" / "cmd+shift+d".
+    pub split_key: String,
+    /// Keybinding that rebalances splits, e.g. "cmd+ctrl+=". Empty disables it.
+    pub equalize_key: String,
     /// Seconds to wait after each new split before pasting into it.
     pub split_delay: f64,
 }
@@ -25,9 +28,10 @@ pub struct OpenSettings {
 impl Default for OpenSettings {
     fn default() -> Self {
         OpenSettings {
-            resume_program: "claude".to_string(),
-            equalize: true,
-            split_down: false,
+            claude_alias: "claude".to_string(),
+            terminal_app: "Ghostty".to_string(),
+            split_key: "cmd+d".to_string(),
+            equalize_key: "cmd+ctrl+=".to_string(),
             split_delay: 0.45,
         }
     }
@@ -60,17 +64,10 @@ fn parse_open_settings(text: &str) -> OpenSettings {
         };
         let val = val.trim().trim_matches('"').trim();
         match key.trim() {
-            "resume_program" if !val.is_empty() => s.resume_program = val.to_string(),
-            "equalize" => {
-                if let Ok(b) = val.parse() {
-                    s.equalize = b;
-                }
-            }
-            "split_down" => {
-                if let Ok(b) = val.parse() {
-                    s.split_down = b;
-                }
-            }
+            "claude_alias" if !val.is_empty() => s.claude_alias = val.to_string(),
+            "terminal_app" if !val.is_empty() => s.terminal_app = val.to_string(),
+            "split_key" if !val.is_empty() => s.split_key = val.to_string(),
+            "equalize_key" => s.equalize_key = val.to_string(), // empty = disable
             "split_delay" => {
                 if let Ok(f) = val.parse() {
                     s.split_delay = f;
@@ -89,19 +86,21 @@ mod tests {
     #[test]
     fn parses_scalars_strips_quotes_and_keeps_defaults() {
         let text =
-            "# my config\n[open]\nresume_program = \"cc\"\nequalize = false\nsplit_delay = 0.7\n";
+            "# my config\nclaude_alias = \"cc\"\nsplit_key = \"cmd+shift+d\"\nsplit_delay = 0.7\n";
         let s = parse_open_settings(text);
-        assert_eq!(s.resume_program, "cc"); // quotes stripped
-        assert!(!s.equalize); // overridden
+        assert_eq!(s.claude_alias, "cc"); // quotes stripped
+        assert_eq!(s.split_key, "cmd+shift+d");
         assert_eq!(s.split_delay, 0.7);
-        assert!(!s.split_down); // absent -> default (false)
+        assert_eq!(s.terminal_app, "Ghostty"); // absent -> default
+        assert_eq!(s.equalize_key, "cmd+ctrl+="); // absent -> default
     }
 
     #[test]
-    fn empty_config_is_all_defaults() {
-        let s = parse_open_settings("");
-        assert_eq!(s.resume_program, "claude");
-        assert!(s.equalize);
-        assert_eq!(s.split_delay, 0.45);
+    fn empty_equalize_key_disables_it_but_empty_config_keeps_defaults() {
+        assert_eq!(parse_open_settings("").claude_alias, "claude");
+        assert_eq!(
+            parse_open_settings("equalize_key = \"\"\n").equalize_key,
+            ""
+        );
     }
 }

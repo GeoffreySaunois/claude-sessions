@@ -10,45 +10,76 @@ use crate::session::Session;
 
 /// OpenConfig controls how selected sessions are launched into the terminal.
 pub struct OpenConfig {
+    /// Terminal app to drive via AppleScript.
+    pub terminal_app: String,
     /// ResumeCommand is the shell run in each surface; `{{cwd}}` and `{{id}}`
     /// are substituted per session.
     pub resume_command: String,
     /// SplitDelay is the AppleScript delay (seconds) after each new surface,
-    /// covering the time Ghostty needs to spawn it before it accepts input.
+    /// covering the time the terminal needs to spawn it before accepting input.
     pub split_delay: f64,
-    /// SplitDown lays sessions out in a vertical stack instead of side by side.
-    pub split_down: bool,
-    /// Equalize re-balances all splits (Ghostty ⌘⌃=) after each new one, so the
-    /// panes stay evenly sized instead of each split halving the previous pane.
-    pub equalize: bool,
+    /// AppleScript keystroke fragment that opens a split.
+    pub split_keystroke: String,
+    /// AppleScript keystroke fragment that rebalances splits, or None to skip.
+    pub equalize_keystroke: Option<String>,
 }
 
 impl Default for OpenConfig {
     /// The Ghostty-native-split configuration.
     fn default() -> Self {
         OpenConfig {
+            terminal_app: "Ghostty".to_string(),
             resume_command: "cd {{cwd}} && claude --resume {{id}}".to_string(),
             split_delay: 0.45,
-            split_down: false,
-            equalize: true,
+            split_keystroke: keystroke("cmd+d").unwrap(),
+            equalize_keystroke: keystroke("cmd+ctrl+="),
         }
     }
 }
 
 impl OpenConfig {
     /// from_config builds the open config from the user config file. The resume
-    /// command is `cd <cwd> && <resume_program> --resume <id>`, so a user only
-    /// configures the program (e.g. a `cc` alias that adds bypass flags) — not
-    /// the whole template.
+    /// command is `cd <cwd> && <claude_alias> --resume <id>`, so a user only
+    /// configures the alias (and the terminal app + split keybindings) — not the
+    /// whole command.
     pub fn from_config() -> Self {
         let s = crate::config::load_open_settings();
         OpenConfig {
-            resume_command: format!("cd {{{{cwd}}}} && {} --resume {{{{id}}}}", s.resume_program),
+            terminal_app: s.terminal_app,
+            resume_command: format!("cd {{{{cwd}}}} && {} --resume {{{{id}}}}", s.claude_alias),
             split_delay: s.split_delay,
-            split_down: s.split_down,
-            equalize: s.equalize,
+            split_keystroke: keystroke(&s.split_key).unwrap_or_else(|| keystroke("cmd+d").unwrap()),
+            equalize_keystroke: keystroke(&s.equalize_key),
         }
     }
+}
+
+/// keystroke turns a binding like "cmd+ctrl+=" into the AppleScript fragment
+/// `keystroke "=" using {command down, control down}`. The last `+`-segment is
+/// the key; earlier ones are modifiers. Returns None for an empty binding.
+fn keystroke(binding: &str) -> Option<String> {
+    let parts: Vec<&str> = binding
+        .split('+')
+        .map(str::trim)
+        .filter(|p| !p.is_empty())
+        .collect();
+    let (key, mods) = parts.split_last()?;
+    let mods: Vec<&str> = mods
+        .iter()
+        .filter_map(|m| match m.to_lowercase().as_str() {
+            "cmd" | "command" | "⌘" => Some("command down"),
+            "ctrl" | "control" | "⌃" => Some("control down"),
+            "shift" | "⇧" => Some("shift down"),
+            "alt" | "opt" | "option" | "⌥" => Some("option down"),
+            _ => None,
+        })
+        .collect();
+    let key = applescript_string(key);
+    Some(match mods.as_slice() {
+        [] => format!("keystroke {key}"),
+        [one] => format!("keystroke {key} using {one}"),
+        many => format!("keystroke {key} using {{{}}}", many.join(", ")),
+    })
 }
 
 /// open launches the given sessions: each one into a split of the currently
@@ -65,15 +96,13 @@ pub fn open(sessions: &[Session], cfg: &OpenConfig) -> std::io::Result<()> {
 /// build_ghostty_script assembles the AppleScript that opens the sessions. It is
 /// pure (no side effects) so it can be unit-tested and previewed.
 fn build_ghostty_script(sessions: &[Session], cfg: &OpenConfig) -> String {
-    // command-down, plus shift for a vertical stack.
-    let split_mods = if cfg.split_down {
-        "{command down, shift down}"
-    } else {
-        "command down"
-    };
     let se = "tell application \"System Events\" to ";
     let mut b = String::new();
-    b.push_str("tell application \"Ghostty\" to activate\n");
+    let _ = writeln!(
+        b,
+        "tell application {} to activate",
+        applescript_string(&cfg.terminal_app)
+    );
     b.push_str("delay 0.3\n");
     // Each resume command is PASTED (⌘V), not typed: System Events `keystroke`
     // drops characters from long strings, which mangled the command on slower
@@ -82,7 +111,7 @@ fn build_ghostty_script(sessions: &[Session], cfg: &OpenConfig) -> String {
     b.push_str("try\n\tset savedClip to (the clipboard as text)\nend try\n");
     for s in sessions.iter() {
         // Open a split of the currently-focused pane (no new tab).
-        let _ = writeln!(b, "{se}keystroke \"d\" using {split_mods}");
+        let _ = writeln!(b, "{se}{}", cfg.split_keystroke);
         let _ = writeln!(b, "delay {}", format_delay(cfg.split_delay));
         let _ = writeln!(
             b,
@@ -92,12 +121,9 @@ fn build_ghostty_script(sessions: &[Session], cfg: &OpenConfig) -> String {
         b.push_str("delay 0.08\n");
         let _ = writeln!(b, "{se}keystroke \"v\" using command down"); // paste
         let _ = writeln!(b, "{se}keystroke return");
-        if cfg.equalize {
-            // ⌘⌃= — rebalance the splits so the panes stay evenly sized.
-            let _ = writeln!(
-                b,
-                "{se}keystroke \"=\" using {{command down, control down}}"
-            );
+        if let Some(eq) = &cfg.equalize_keystroke {
+            // rebalance the splits so the panes stay evenly sized.
+            let _ = writeln!(b, "{se}{eq}");
         }
     }
     b.push_str("delay 0.1\n");
@@ -167,6 +193,7 @@ mod tests {
     fn script_uses_splits_only_and_quotes_cwd() {
         let sessions = vec![session("id1", "/a b"), session("id2", "/c")];
         let script = build_ghostty_script(&sessions, &OpenConfig::default());
+        assert!(script.contains(r#"tell application "Ghostty" to activate"#));
         assert!(!script.contains("keystroke \"t\""));
         assert_eq!(
             script.matches("keystroke \"d\" using command down").count(),
@@ -187,5 +214,22 @@ mod tests {
                 .count(),
             2
         );
+    }
+
+    #[test]
+    fn keystroke_parses_bindings() {
+        assert_eq!(
+            keystroke("cmd+d").unwrap(),
+            r#"keystroke "d" using command down"#
+        );
+        assert_eq!(
+            keystroke("cmd+shift+d").unwrap(),
+            r#"keystroke "d" using {command down, shift down}"#
+        );
+        assert_eq!(
+            keystroke("cmd+ctrl+=").unwrap(),
+            r#"keystroke "=" using {command down, control down}"#
+        );
+        assert!(keystroke("").is_none()); // empty disables (e.g. equalize off)
     }
 }

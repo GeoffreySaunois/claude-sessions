@@ -83,14 +83,15 @@ Optional user config at `~/.claude/session-ui/config.toml` (honors
 `CLAUDE_CONFIG_DIR`). All keys are optional — defaults shown:
 
 ```toml
-resume_program = "claude"   # launcher; e.g. "cc" for an alias adding bypass flags
-equalize       = true       # rebalance splits (⌘⌃=) after each
-split_down     = false      # stack splits vertically (⌘⇧D) instead of side-by-side
-split_delay    = 0.45       # seconds to wait after each split before pasting
+claude_alias = "claude"      # claude command/alias, possibly with flags (e.g. --dangerously-skip-permissions)
+terminal_app = "Ghostty"     # terminal app to drive
+split_key    = "cmd+d"       # keybinding to open a split ("cmd+shift+d" to stack vertically)
+equalize_key = "cmd+ctrl+="  # keybinding to rebalance splits; empty to disable
+split_delay  = 0.45          # seconds to wait after each split before pasting
 ```
 
-The resume invocation is `<resume_program> --resume <id>`, so you only set the
-program — not the whole command.
+The resume invocation is `<claude_alias> --resume <id>`, so you set just the
+alias — not the whole command.
 
 ## License
 
