@@ -72,9 +72,17 @@ pnpm -C frontend dev
 ## Opening sessions (macOS / Ghostty)
 
 Ghostty has no CLI to create a split that runs a command, so **Open** drives the
-native splits via AppleScript keystrokes (`⌘D` per session, then
-`cd <cwd> && claude --resume <id>`). The first use prompts to allow the
+native splits via AppleScript: for each session it sends `⌘D` (split), pastes
+`cd <cwd> && claude --resume <id>` (pasting, not typing, so long commands aren't
+mangled), and `⌘⌃=` to keep the panes even. The first use prompts to allow the
 controlling app under **System Settings → Privacy & Security → Accessibility**.
+
+Set `CCS_RESUME_COMMAND` to use your own launcher — keep the `{{cwd}}` and
+`{{id}}` placeholders, e.g. for an alias that adds bypass flags:
+
+```sh
+export CCS_RESUME_COMMAND='cd {{cwd}} && cc --resume {{id}}'
+```
 
 ## License
 

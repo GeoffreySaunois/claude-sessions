@@ -35,6 +35,22 @@ impl Default for OpenConfig {
     }
 }
 
+impl OpenConfig {
+    /// from_env is the default, with the resume command overridden by
+    /// `CCS_RESUME_COMMAND` when set — so users can point it at their own alias,
+    /// e.g. `cd {{cwd}} && cc --resume {{id}}` (a `cc` that adds bypass flags).
+    /// The override must keep the `{{cwd}}` and `{{id}}` placeholders.
+    pub fn from_env() -> Self {
+        let mut cfg = OpenConfig::default();
+        if let Ok(cmd) = std::env::var("CCS_RESUME_COMMAND") {
+            if !cmd.trim().is_empty() {
+                cfg.resume_command = cmd;
+            }
+        }
+        cfg
+    }
+}
+
 /// open launches the given sessions: each one into a split of the currently
 /// focused Ghostty pane, every surface resuming its session.
 pub fn open(sessions: &[Session], cfg: &OpenConfig) -> std::io::Result<()> {

@@ -311,7 +311,7 @@ async fn handle_open(
     };
     let matched = select_by_ids(&sessions, &req.ids);
     let opened = matched.len();
-    if let Err(e) = open(&matched, &OpenConfig::default()) {
+    if let Err(e) = open(&matched, &OpenConfig::from_env()) {
         return internal_error(e);
     }
     Json(OpenResponse { opened }).into_response()
