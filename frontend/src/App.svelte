@@ -4,12 +4,13 @@
   import GroupBlock from "./lib/GroupBlock.svelte";
   import MainActionBar from "./lib/MainActionBar.svelte";
   import BrowseModal from "./lib/BrowseModal.svelte";
+  import ConversationModal from "./lib/ConversationModal.svelte";
   import StatusBar from "./lib/StatusBar.svelte";
   import ContextMenu from "./lib/ContextMenu.svelte";
   import ShortcutsHelp from "./lib/ShortcutsHelp.svelte";
   import UnpinConfirm from "./lib/UnpinConfirm.svelte";
   import Toast from "./lib/Toast.svelte";
-  import { handleKeydown } from "./lib/keyboard";
+  import { handleKeydown, handleKeyup } from "./lib/keyboard";
 
   const counts = $derived(store.counts);
   const anyPinned = $derived(store.pinned.length > 0);
@@ -68,7 +69,7 @@
   });
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} onkeyup={handleKeyup} />
 
 <header>
   <div class="titlebar">
@@ -187,6 +188,7 @@
 </main>
 
 <BrowseModal />
+<ConversationModal />
 <ContextMenu />
 <ShortcutsHelp />
 <UnpinConfirm />

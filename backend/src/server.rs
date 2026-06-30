@@ -17,6 +17,7 @@ use crate::meta::{MetaStore, SessionMeta};
 use crate::open::{open, OpenConfig};
 use crate::search::search_transcripts;
 use crate::session::Session;
+use crate::transcript::read_transcript;
 
 /// router builds the full route table: SPA at `/`, JSON API under `/api`, and
 /// every other path resolved against the embedded assets.
@@ -24,6 +25,7 @@ pub fn router() -> Router {
     Router::new()
         .route("/", get(assets::index))
         .route("/api/sessions", get(handle_sessions))
+        .route("/api/sessions/{id}/transcript", get(handle_transcript))
         .route("/api/search", get(handle_search))
         .route(
             "/api/options",
@@ -78,6 +80,31 @@ async fn handle_search(Query(params): Query<SearchParams>) -> Response {
 #[derive(Serialize)]
 struct SearchResponse {
     matches: HashMap<String, String>,
+}
+
+#[derive(Deserialize)]
+struct TranscriptParams {
+    /// How many of the most recent user/assistant turns to return.
+    #[serde(default = "default_transcript_limit")]
+    limit: usize,
+}
+
+fn default_transcript_limit() -> usize {
+    40
+}
+
+/// handle_transcript returns the last `limit` user/assistant turns of one
+/// session, chronological. 404 when the id resolves to no transcript.
+async fn handle_transcript(
+    Path(id): Path<String>,
+    Query(params): Query<TranscriptParams>,
+) -> Response {
+    let limit = params.limit.clamp(1, 500);
+    match tokio::task::spawn_blocking(move || read_transcript(&id, limit)).await {
+        Ok(Some(t)) => Json(t).into_response(),
+        Ok(None) => (StatusCode::NOT_FOUND, "session not found").into_response(),
+        Err(e) => internal_error(e),
+    }
 }
 
 #[derive(Serialize)]

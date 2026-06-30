@@ -2,13 +2,17 @@ import {
   fetchOptions,
   fetchSearch,
   fetchSessions,
+  fetchTranscript,
   postBulk,
   postMeta,
   postOpen,
   postPin,
 } from "./api";
 import { projBase, textMatch } from "./derive";
-import type { BulkAction, Options, Session } from "./types";
+import type { BulkAction, Options, Session, Turn } from "./types";
+
+// How many recent turns the conversation-preview modal requests.
+const TRANSCRIPT_LIMIT = 40;
 
 export const ALL_KINDS: Session["kind"][] = [
   "main",
@@ -107,6 +111,29 @@ class SessionStore {
   // list while the modal is open, otherwise the Main (pinned) list. -1 = none.
   focusIndex = $state(-1);
   shortcutsOpen = $state(false);
+
+  // ---- conversation preview modal ----
+  // A centered overlay showing the focused session's recent turns. `transient`
+  // marks a hold-to-peek (Space) that closes on key release; a sticky open
+  // (Enter) does not. `loading`/`error` drive the body's fetch states.
+  conversation = $state<{
+    open: boolean;
+    transient: boolean;
+    session: Session | null;
+    messages: Turn[];
+    loading: boolean;
+    error: string;
+  }>({
+    open: false,
+    transient: false,
+    session: null,
+    messages: [],
+    loading: false,
+    error: "",
+  });
+  // Monotonic token so a slow fetch for a since-closed/replaced session can't
+  // overwrite the visible conversation.
+  private conversationSeq = 0;
 
   // ---- context menu ----
   // At most one row context menu is open at a time. `surface` tells the menu
@@ -356,8 +383,9 @@ class SessionStore {
 
   // ---- refresh loop ----
   async refresh(): Promise<void> {
-    // Don't clobber an open popover — the user may be mid-edit.
-    if (this.popoverOpen) return;
+    // Don't clobber an open popover (mid-edit) or the conversation preview —
+    // re-rendering the list would disrupt the reader.
+    if (this.popoverOpen || this.conversation.open) return;
     try {
       const [sessions, options] = await Promise.all([
         fetchSessions(),
@@ -655,6 +683,70 @@ class SessionStore {
   closeBrowse(): void {
     this.browseOpen = false;
     this.resetFocus();
+  }
+
+  // ---- conversation preview ----
+  // Open the preview for a session, fetching its recent turns. A transient open
+  // is the hold-to-peek (Space); it closes on key release unless promoted to
+  // sticky. Re-opening for the same session while already open just promotes
+  // stickiness and avoids a redundant fetch.
+  openConversation(session: Session, opts: { transient: boolean }): void {
+    const same =
+      this.conversation.open && this.conversation.session?.id === session.id;
+    if (same) {
+      if (!opts.transient) this.conversation.transient = false;
+      return;
+    }
+    const seq = ++this.conversationSeq;
+    this.conversation = {
+      open: true,
+      transient: opts.transient,
+      session,
+      messages: [],
+      loading: true,
+      error: "",
+    };
+    void this.loadConversation(session.id, seq);
+  }
+
+  // promoteConversation makes a transient peek sticky, so releasing Space (or a
+  // later refresh) no longer closes it. Used when Enter is pressed during a peek.
+  promoteConversation(): void {
+    if (this.conversation.open) this.conversation.transient = false;
+  }
+
+  closeConversation(): void {
+    // Invalidate any in-flight fetch so its result can't reopen the modal.
+    this.conversationSeq++;
+    this.conversation = {
+      open: false,
+      transient: false,
+      session: null,
+      messages: [],
+      loading: false,
+      error: "",
+    };
+  }
+
+  // closeConversationPeek closes the modal only if it's still the transient peek
+  // — a peek promoted to sticky (Enter) survives the Space key release.
+  closeConversationPeek(): void {
+    if (this.conversation.open && this.conversation.transient) {
+      this.closeConversation();
+    }
+  }
+
+  private async loadConversation(id: string, seq: number): Promise<void> {
+    try {
+      const data = await fetchTranscript(id, TRANSCRIPT_LIMIT);
+      if (seq !== this.conversationSeq) return; // superseded or closed
+      this.conversation.messages = data.messages;
+      this.conversation.loading = false;
+    } catch (e) {
+      if (seq !== this.conversationSeq) return;
+      this.conversation.error = (e as Error).message;
+      this.conversation.loading = false;
+    }
   }
 }
 

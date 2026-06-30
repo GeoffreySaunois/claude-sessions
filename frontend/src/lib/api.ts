@@ -4,6 +4,7 @@ import type {
   Options,
   SearchResult,
   Session,
+  Transcript,
 } from "./types";
 
 async function postJSON<T>(url: string, body: unknown): Promise<T> {
@@ -28,6 +29,18 @@ export async function fetchOptions(): Promise<Options> {
   const o = (await res.json()) as Partial<Options>;
   // The API encodes empty option universes as JSON null; normalize to arrays.
   return { categories: o.categories || [], tags: o.tags || [] };
+}
+
+export async function fetchTranscript(
+  id: string,
+  limit: number,
+): Promise<Transcript> {
+  const res = await fetch(
+    "/api/sessions/" + encodeURIComponent(id) + "/transcript?limit=" + limit,
+  );
+  if (!res.ok) throw new Error("transcript " + res.status);
+  const data = (await res.json()) as Partial<Transcript>;
+  return { messages: data.messages || [] };
 }
 
 export async function fetchSearch(query: string): Promise<SearchResult> {

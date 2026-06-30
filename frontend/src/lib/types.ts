@@ -39,6 +39,18 @@ export interface SearchResult {
   matches: Record<string, string>;
 }
 
+// One rendered conversation turn from /api/sessions/{id}/transcript.
+export interface Turn {
+  role: "user" | "assistant";
+  text: string;
+  ts: string; // RFC3339 or empty
+  tools: string[];
+}
+
+export interface Transcript {
+  messages: Turn[];
+}
+
 export type BulkAction = "archive" | "unarchive" | "category" | "pin" | "unpin";
 
 export interface MetaPatch {

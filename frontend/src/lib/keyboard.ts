@@ -30,9 +30,14 @@ function blurActiveElement(): void {
   if (el instanceof HTMLElement) el.blur();
 }
 
-// Escape unwinds the most specific layer first: unpin confirm, context menu,
-// then popover, then help overlay, then modal, then selection, then search.
+// Escape unwinds the most specific layer first: conversation preview, unpin
+// confirm, context menu, then popover, then help overlay, then browse modal,
+// then selection, then search.
 function handleEscape(): boolean {
+  if (store.conversation.open) {
+    store.closeConversation();
+    return true;
+  }
   if (store.unpinConfirm) {
     store.cancelUnpin();
     return true;
@@ -84,6 +89,14 @@ export function handleKeydown(e: KeyboardEvent): void {
     return;
   }
 
+  // ⌘↵ / Ctrl+↵: open/resume in the terminal (the selection, else the focused
+  // row). This is the action plain Enter used to perform.
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+    e.preventDefault();
+    store.openActive();
+    return;
+  }
+
   // Ignore other modified chords so browser/OS shortcuts pass through.
   if (e.metaKey || e.ctrlKey || e.altKey) return;
 
@@ -112,16 +125,32 @@ export function handleKeydown(e: KeyboardEvent): void {
       e.preventDefault();
       store.moveFocus(-1);
       return;
-    case " ":
+    case " ": {
+      // Space peeks the focused conversation (hold-to-show). Guard against the
+      // OS key-repeat firing keydown repeatedly while held — the peek opens once.
+      // preventDefault stops the page from scrolling.
+      e.preventDefault();
+      if (e.repeat) return;
+      const focused = store.focusedSession;
+      if (focused) store.openConversation(focused, { transient: true });
+      return;
+    }
     case "x":
       e.preventDefault();
       store.toggleFocusedSelect();
       return;
-    case "Enter":
-    case "o":
+    case "Enter": {
+      // Enter opens the conversation preview sticky. While a peek is showing,
+      // it promotes the peek so releasing Space won't close it.
       e.preventDefault();
-      store.openActive();
+      if (store.conversation.open) {
+        store.promoteConversation();
+        return;
+      }
+      const focused = store.focusedSession;
+      if (focused) store.openConversation(focused, { transient: false });
       return;
+    }
     case "p":
       // Pin only — safe. Unpin (destructive) is Backspace/Delete + confirm.
       e.preventDefault();
@@ -147,4 +176,12 @@ export function handleKeydown(e: KeyboardEvent): void {
       store.shortcutsOpen = !store.shortcutsOpen;
       return;
   }
+}
+
+// Releasing Space ends a hold-to-peek: it closes the conversation modal ONLY if
+// it's still the transient peek (an Enter-promoted sticky preview survives). No
+// text-entry guard is needed — the peek only opens from the full keymap, which
+// already excludes text entry.
+export function handleKeyup(e: KeyboardEvent): void {
+  if (e.key === " ") store.closeConversationPeek();
 }

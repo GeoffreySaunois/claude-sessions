@@ -13,6 +13,7 @@ mod server;
 mod session;
 mod status;
 mod timefmt;
+mod transcript;
 
 const DEFAULT_ADDR: &str = "127.0.0.1:7799";
 

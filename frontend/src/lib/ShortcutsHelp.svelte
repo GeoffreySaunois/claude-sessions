@@ -6,13 +6,15 @@
   const KEYS: { keys: string[]; label: string }[] = [
     { keys: ["↑", "k"], label: "Move focus up" },
     { keys: ["↓", "j"], label: "Move focus down" },
-    { keys: ["Space", "x"], label: "Toggle selection of focused row" },
-    { keys: ["↵", "o"], label: "Open selection, else focused row" },
+    { keys: ["x"], label: "Toggle selection of focused row" },
+    { keys: ["Space"], label: "Peek conversation (hold to show)" },
+    { keys: ["↵"], label: "Preview conversation" },
+    { keys: ["⌘↵"], label: "Open / resume in terminal" },
     { keys: ["p"], label: "Pin focused row" },
     { keys: ["⌫"], label: "Unpin focused row (confirms first)" },
     { keys: ["/", "⌘K"], label: "Focus search" },
     { keys: ["b"], label: "Open Browse all" },
-    { keys: ["Esc"], label: "Close popover / modal, else clear selection" },
+    { keys: ["Esc"], label: "Close conversation / popover / modal, else clear selection" },
     { keys: ["?"], label: "Toggle this help" },
   ];
 </script>

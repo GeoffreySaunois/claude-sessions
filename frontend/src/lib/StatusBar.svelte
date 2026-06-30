@@ -25,11 +25,13 @@
   <span class="sl-keys">
     <span class="pair"><span class="k">↑↓</span>navigate</span>
     <span class="pair"><span class="k">x</span>select</span>
-    <span class="pair"><span class="k">⌘K</span>search</span>
+    <span class="pair"><span class="k">space</span>peek</span>
+    <span class="pair"><span class="k">↵</span>preview</span>
+    <span class="pair"><span class="k">⌘↵</span>open</span>
     <span class="pair"><span class="k">p</span>pin</span>
     <span class="pair"><span class="k">⌫</span>unpin</span>
-    <span class="pair"><span class="k">o</span>open</span>
-    <span class="pair"><span class="k">↵</span>resume</span>
+    <span class="pair"><span class="k">⌘K</span>search</span>
+    <span class="pair"><span class="k">b</span>browse</span>
     <button
       class="pair sl-help"
       type="button"

@@ -89,6 +89,24 @@ pub fn discover_transcripts() -> std::io::Result<Vec<Session>> {
     Ok(sessions)
 }
 
+/// find_transcript_path resolves a session id (the transcript filename stem) to
+/// its `.jsonl` path by scanning the same project directories discovery walks.
+/// Returns None when no transcript with that stem exists.
+pub fn find_transcript_path(id: &str) -> Option<std::path::PathBuf> {
+    let target = format!("{id}.jsonl");
+    let root = projects_dir();
+    for entry in fs::read_dir(&root).ok()?.flatten() {
+        if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+            continue;
+        }
+        let candidate = entry.path().join(&target);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
 /// parse_transcript reads one transcript's head and extracts session metadata.
 /// Returns None for an empty stub (no user/assistant message).
 fn parse_transcript(proj_dir: &Path, name: &str) -> Option<Session> {
@@ -388,7 +406,7 @@ fn first_user_text(raw: &serde_json::Value) -> String {
 /// blocks (system reminders, command caveats, slash-command envelopes) so what
 /// remains is what the user/assistant actually wrote. Newlines are KEPT, so a
 /// multi-line message stays multi-line (used for the expandable preview).
-fn strip_wrappers(s: &str) -> String {
+pub(crate) fn strip_wrappers(s: &str) -> String {
     let mut s = s.to_string();
     loop {
         s = s.trim().to_string();
