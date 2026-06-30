@@ -36,18 +36,18 @@ impl Default for OpenConfig {
 }
 
 impl OpenConfig {
-    /// from_env is the default, with the resume command overridden by
-    /// `CCS_RESUME_COMMAND` when set — so users can point it at their own alias,
-    /// e.g. `cd {{cwd}} && cc --resume {{id}}` (a `cc` that adds bypass flags).
-    /// The override must keep the `{{cwd}}` and `{{id}}` placeholders.
-    pub fn from_env() -> Self {
-        let mut cfg = OpenConfig::default();
-        if let Ok(cmd) = std::env::var("CCS_RESUME_COMMAND") {
-            if !cmd.trim().is_empty() {
-                cfg.resume_command = cmd;
-            }
+    /// from_config builds the open config from the user config file. The resume
+    /// command is `cd <cwd> && <resume_program> --resume <id>`, so a user only
+    /// configures the program (e.g. a `cc` alias that adds bypass flags) — not
+    /// the whole template.
+    pub fn from_config() -> Self {
+        let s = crate::config::load_open_settings();
+        OpenConfig {
+            resume_command: format!("cd {{{{cwd}}}} && {} --resume {{{{id}}}}", s.resume_program),
+            split_delay: s.split_delay,
+            split_down: s.split_down,
+            equalize: s.equalize,
         }
-        cfg
     }
 }
 

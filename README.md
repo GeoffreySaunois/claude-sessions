@@ -77,12 +77,20 @@ native splits via AppleScript: for each session it sends `⌘D` (split), pastes
 mangled), and `⌘⌃=` to keep the panes even. The first use prompts to allow the
 controlling app under **System Settings → Privacy & Security → Accessibility**.
 
-Set `CCS_RESUME_COMMAND` to use your own launcher — keep the `{{cwd}}` and
-`{{id}}` placeholders, e.g. for an alias that adds bypass flags:
+## Config
 
-```sh
-export CCS_RESUME_COMMAND='cd {{cwd}} && cc --resume {{id}}'
+Optional user config at `~/.claude/session-ui/config.toml` (honors
+`CLAUDE_CONFIG_DIR`). All keys are optional — defaults shown:
+
+```toml
+resume_program = "claude"   # launcher; e.g. "cc" for an alias adding bypass flags
+equalize       = true       # rebalance splits (⌘⌃=) after each
+split_down     = false      # stack splits vertically (⌘⇧D) instead of side-by-side
+split_delay    = 0.45       # seconds to wait after each split before pasting
 ```
+
+The resume invocation is `<resume_program> --resume <id>`, so you only set the
+program — not the whole command.
 
 ## License
 

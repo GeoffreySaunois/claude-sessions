@@ -3,6 +3,7 @@
 //! `--addr`, then `CCS_ADDR`, then the default `127.0.0.1:7799`.
 
 mod assets;
+mod config;
 mod discover;
 mod loader;
 mod meta;
